@@ -30,7 +30,7 @@ device = torch.device('cuda') if torch.cuda.is_available() and use_gpu else torc
 
 create_table_script = '''
 CREATE TABLE IF NOT EXISTS dice_table(id INTEGER PRIMARY KEY, c_time text , 
-net_arch TEXT, method_name TEXT, innerloop integer, lambda float , sigma float , kernel_size integer, eps float ,epoch integer, dataset TEXT, F_dice float )
+net_arch TEXT, method_name TEXT, innerloop integer, lambda float , sigma float , kernel_size integer, eps float ,epoch integer, dataset TEXT, F_dice float,comment TEXT )
 '''
 db = sqlite3.connect('dataset/statistic_results')
 try:
@@ -44,7 +44,7 @@ batch_size = 1
 batch_size_val = 1
 num_workers = 1
 lr = 0.001
-max_epoch = 1
+max_epoch = 100
 data_dir = 'dataset/ACDC-2D-All'
 color_transform = Colorize()
 transform = transforms.Compose([
@@ -71,10 +71,12 @@ val_loader = DataLoader(val_set, batch_size=batch_size_val, num_workers=num_work
 @click.option('--lamda', default=1.0, help='balance between unary and boundary terms')
 @click.option('--sigma', default=0.01, help='sigma in the boundary term of the graphcut')
 @click.option('--kernelsize', default=7, help='kernelsize of the graphcut')
-@click.option('--assign_size_to_each', default=True, help='default_save_name')
+@click.option('--assign_size_to_each', default=True, help='to apply individual loss')
 @click.option('--eps', default=0.05, help='default eps for testing')
-def main(netarch, baseline, inneriter, lamda, sigma, kernelsize, assign_size_to_each, eps):
-    ious_tables = []
+@click.option('--comments', default='test', type=click.Choice(['test','official']))
+def main(netarch, baseline, inneriter, lamda, sigma, kernelsize, assign_size_to_each, eps, comments):
+
+    best_val_score = -1
     ##==================================================================================================================
     if netarch == 'enet':
         neural_net = Enet(2)
@@ -100,15 +102,22 @@ def main(netarch, baseline, inneriter, lamda, sigma, kernelsize, assign_size_to_
         [train_ious, _] = evaluate_dice(train_loader, net.neural_net, save=False)
         [val_ious, _] = evaluate_dice(val_loader, net.neural_net, save=False)
 
-        ious = np.array((train_ious, val_ious)).ravel().tolist()
-        ious_tables.append(ious)
+        if best_val_score< val_ious[1]:
+            # if the path does not exisit.
+            if not os.path.exists('checkpoints'):
+                os.mkdir('checkpoints')
+                if not os.path.exists(os.path.join('checkpoints','weakly')):
+                    os.mkdir(os.path.join('checkpoints','weakly'))
+            torch.save(neural_net.state_dict(),os.path.join('checkpoints','weakly','%s_fdice_%.4f.pth'%(netarch,val_ious[1])))
+            best_val_score= val_ious[1]
+
         try:
             cursor.execute(
-                '''INSERT INTO dice_table(c_time,net_arch,method_name,innerloop,lambda,sigma,kernel_size,eps,epoch,dataset,F_dice) VALUES(DATETIME('now','localtime'),?,?,?,?,?,?,?,?,?,?)''',
-                (netarch, baseline, inneriter, lamda, sigma, kernelsize, eps, iteration, 'train', train_ious[1]))
+                '''INSERT INTO dice_table(c_time,net_arch,method_name,innerloop,lambda,sigma,kernel_size,eps,epoch,dataset,F_dice,comment) VALUES(DATETIME('now','localtime'),?,?,?,?,?,?,?,?,?,?,?)''',
+                (netarch, baseline, inneriter, lamda, sigma, kernelsize, eps, iteration, 'train', train_ious[1],comments))
             cursor.execute(
-                '''INSERT INTO dice_table(c_time,net_arch,method_name,innerloop,lambda,sigma,kernel_size,eps,epoch,dataset,F_dice) VALUES(DATETIME('now','localtime'),?,?,?,?,?,?,?,?,?,?)''',
-                (netarch, baseline, inneriter, lamda, sigma, kernelsize, eps, iteration, 'val', val_ious[1]))
+                '''INSERT INTO dice_table(c_time,net_arch,method_name,innerloop,lambda,sigma,kernel_size,eps,epoch,dataset,F_dice,comment) VALUES(DATETIME('now','localtime'),?,?,?,?,?,?,?,?,?,?,?)''',
+                (netarch, baseline, inneriter, lamda, sigma, kernelsize, eps, iteration, 'val', val_ious[1],comments))
             db.commit()
 
         except Exception as e:
@@ -124,9 +133,6 @@ def main(netarch, baseline, inneriter, lamda, sigma, kernelsize, assign_size_to_
 
             for i in range(inneriter):
                 net.update_1((img, weak_mask), full_mask)
-                net.show_gamma()
-                net.show_heatmap()
-                # print(net.upbound, net.lowbound)
                 net.update_2()
             net.reset()
 
