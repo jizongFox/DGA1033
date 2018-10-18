@@ -105,7 +105,7 @@ class MedicalImageDataset(Dataset):
         self.equalize = equalize
 
     def __len__(self):
-        return int(len(self.imgs)/15)
+        return int(len(self.imgs)/25)
 
     def augment(self, img, mask, weak_mask):
         if random.random() > 0.5:

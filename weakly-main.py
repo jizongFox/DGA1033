@@ -30,7 +30,7 @@ device = torch.device('cuda') if torch.cuda.is_available() and use_gpu else torc
 
 create_table_script = '''
 CREATE TABLE IF NOT EXISTS dice_table(id INTEGER PRIMARY KEY, c_time text , 
-net_arch TEXT, method_name TEXT, innerloop integer, lambda float , sigma float , kernel_size integer, eps float ,epoch integer, dataset TEXT, F_dice float,comment TEXT )
+net_arch TEXT, method_name TEXT, episode integer, innerloop integer, lambda float , sigma float , kernel_size integer, eps float ,epoch integer, dataset TEXT, F_dice float,comment TEXT )
 '''
 db = sqlite3.connect('dataset/statistic_results')
 try:
@@ -67,16 +67,18 @@ val_loader = DataLoader(val_set, batch_size=batch_size_val, num_workers=num_work
 @click.command()
 @click.option('--netarch', default='unet', type=click.Choice(['enet', 'unet']))
 @click.option('--baseline', default='ADMM_weak', type=click.Choice(['ADMM_weak', 'ADMM_weak_gc', 'ADMM_weak_size']))
-@click.option('--inneriter', default=1, help='iterative time in an inner admm loop')
+@click.option('--episode', default=0, help='the episode number of the experiments; 0 unassigned')
+@click.option('--inneriter', default=2, help='iterative time in an inner admm loop')
 @click.option('--lamda', default=1.0, help='balance between unary and boundary terms')
 @click.option('--sigma', default=0.01, help='sigma in the boundary term of the graphcut')
 @click.option('--kernelsize', default=7, help='kernelsize of the graphcut')
 @click.option('--assign_size_to_each', default=True, help='to apply individual loss')
 @click.option('--eps', default=0.05, help='default eps for testing')
 @click.option('--comments', default='test', type=click.Choice(['test','official']))
-def main(netarch, baseline, inneriter, lamda, sigma, kernelsize, assign_size_to_each, eps, comments):
+def main(netarch, baseline,episode, inneriter, lamda, sigma, kernelsize, assign_size_to_each, eps, comments):
 
     best_val_score = -1
+    return
     ##==================================================================================================================
     if netarch == 'enet':
         neural_net = Enet(2)
@@ -113,11 +115,11 @@ def main(netarch, baseline, inneriter, lamda, sigma, kernelsize, assign_size_to_
 
         try:
             cursor.execute(
-                '''INSERT INTO dice_table(c_time,net_arch,method_name,innerloop,lambda,sigma,kernel_size,eps,epoch,dataset,F_dice,comment) VALUES(DATETIME('now','localtime'),?,?,?,?,?,?,?,?,?,?,?)''',
-                (netarch, baseline, inneriter, lamda, sigma, kernelsize, eps, iteration, 'train', train_ious[1],comments))
+                '''INSERT INTO dice_table(c_time,net_arch,method_name,episode, innerloop,lambda,sigma,kernel_size,eps,epoch,dataset,F_dice,comment) VALUES(DATETIME('now','localtime'),?,?,?,?,?,?,?,?,?,?,?,?)''',
+                (netarch, baseline, episode,inneriter, lamda, sigma, kernelsize, eps, iteration, 'train', train_ious[1],comments))
             cursor.execute(
-                '''INSERT INTO dice_table(c_time,net_arch,method_name,innerloop,lambda,sigma,kernel_size,eps,epoch,dataset,F_dice,comment) VALUES(DATETIME('now','localtime'),?,?,?,?,?,?,?,?,?,?,?)''',
-                (netarch, baseline, inneriter, lamda, sigma, kernelsize, eps, iteration, 'val', val_ious[1],comments))
+                '''INSERT INTO dice_table(c_time,net_arch,method_name,episode, innerloop,lambda,sigma,kernel_size,eps,epoch,dataset,F_dice,comment) VALUES(DATETIME('now','localtime'),?,?,?,?,?,?,?,?,?,?,?,?)''',
+                (netarch, baseline, episode,inneriter, lamda, sigma, kernelsize, eps, iteration, 'val', val_ious[1],comments))
             db.commit()
 
         except Exception as e:
