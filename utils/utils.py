@@ -70,6 +70,7 @@ def dice_loss(input, target):
 def evaluate_dice(val_dataloader, network,save=False):
     b_dice_meter = AverageValueMeter()
     f_dice_meter = AverageValueMeter()
+    network.eval()
     with torch.no_grad():
         images =[]
         for i, (image, mask, weak_mask, pathname) in enumerate(val_dataloader):
@@ -83,6 +84,7 @@ def evaluate_dice(val_dataloader, network,save=False):
             f_dice_meter.add(f_iou)
             if save:
                 images= save_images(images, image,proba, mask, weak_mask)
+    network.train()
     if save:
         grid = make_grid(images,nrow=4)
         return [[b_dice_meter.value()[0],f_dice_meter.value()[0]],grid]
