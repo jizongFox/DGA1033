@@ -30,8 +30,8 @@ for net in networks:
         for lamda in lamdas:
             for eps in epses:
                 for episode in episodes:
-                    cmd = "MP_NUM_THREADS=4 CUDA_VISIBLE_DEVICES=%d  python weakly-main.py --netarch %s --baseline %s --lamda %f --eps %f --episode %d --comments %s" % (
-                        gpu_n(),
+                    cmd = "MP_NUM_THREADS=2 CUDA_VISIBLE_DEVICES=%d  python weakly-main.py --netarch %s --baseline %s --lamda %f --eps %f --episode %d --comments %s" % (
+                        np.random.choice(choice_of_GPU),
                         net,
                         baseline,
                         lamda,
@@ -42,8 +42,9 @@ for net in networks:
 for net in networks:
     for lamda in lamdas:
         for episode in episodes:
-            cmd =  "MP_NUM_THREADS=4 CUDA_VISIBLE_DEVICES=%d  python weakly-main.py --netarch %s --baseline %s --lamda %f --episode %d --comments %s" % (
-                gpu_n(),net,'ADMM_weak_gc',lamda, episode,comment)
+            cmd =  "MP_NUM_THREADS=2 CUDA_VISIBLE_DEVICES=%d  python weakly-main.py --netarch %s --baseline %s --lamda %f --episode %d --comments %s" % (
+                np.random.choice(choice_of_GPU),
+                net,'ADMM_weak_gc',lamda, episode,comment)
             cmds.append(cmd)
 print(cmds.__len__())
 
@@ -51,5 +52,5 @@ print(cmds.__len__())
 if __name__ == '__main__':
     from multiprocessing import Pool
 
-    p = Pool(18)
+    p = Pool(2)
     p.map(os.system, cmds)
