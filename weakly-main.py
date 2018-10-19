@@ -16,6 +16,7 @@ from torchvision import transforms
 import utils.medicalDataLoader as medicalDataLoader
 from ADMM import weakly_ADMM_network, weakly_ADMM_without_sizeConstraint, weakly_ADMM_without_gc
 from utils.enet import Enet
+from utils.joseent.ENet import ENet as jenet
 from utils.network import UNet
 from utils.utils import Colorize, evaluate_dice
 
@@ -44,7 +45,7 @@ batch_size = 1
 batch_size_val = 1
 num_workers = 1
 lr = 0.001
-max_epoch = 100
+max_epoch = 200
 data_dir = 'dataset/ACDC-2D-All'
 color_transform = Colorize()
 transform = transforms.Compose([
@@ -65,7 +66,7 @@ val_loader = DataLoader(val_set, batch_size=batch_size_val, num_workers=num_work
 
 
 @click.command()
-@click.option('--netarch', default='unet', type=click.Choice(['enet', 'unet']))
+@click.option('--netarch', default='jenet', type=click.Choice(['enet', 'unet','jenet']))
 @click.option('--baseline', default='ADMM_weak', type=click.Choice(['ADMM_weak', 'ADMM_weak_gc', 'ADMM_weak_size']))
 @click.option('--episode', default=0, help='the episode number of the experiments; 0 unassigned')
 @click.option('--inneriter', default=2, help='iterative time in an inner admm loop')
@@ -74,16 +75,18 @@ val_loader = DataLoader(val_set, batch_size=batch_size_val, num_workers=num_work
 @click.option('--kernelsize', default=7, help='kernelsize of the graphcut')
 @click.option('--assign_size_to_each', default=True, help='to apply individual loss')
 @click.option('--eps', default=0.05, help='default eps for testing')
-@click.option('--comments', default='test', type=click.Choice(['test','official']))
+@click.option('--comments', default='test')
 def main(netarch, baseline,episode, inneriter, lamda, sigma, kernelsize, assign_size_to_each, eps, comments):
 
     best_val_score = -1
-    return
+
     ##==================================================================================================================
     if netarch == 'enet':
         neural_net = Enet(2)
     elif netarch == 'unet':
         neural_net = UNet(2)
+    elif netarch == 'jenet':
+        neural_net = jenet(1,2)
     else:
         raise ValueError
 
