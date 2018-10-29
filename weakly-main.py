@@ -138,6 +138,7 @@ def main(netarch, baseline,episode, inneriter, lamda, sigma, kernelsize, assign_
 
             for i in range(inneriter):
                 net.update_1((img, weak_mask), full_mask)
+                net.show_gamma()
                 net.update_2()
             net.reset()
 

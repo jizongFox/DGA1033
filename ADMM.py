@@ -531,8 +531,6 @@ class weakly_ADMM_network(ADMM_networks):
 
     def update_theta(self):
 
-        self.neural_net.zero_grad()
-
         for i in range(5):
             CE_loss = self.CEloss_criterion(self.image_output, self.weak_mask.squeeze(1).long())
             unlabled_loss = self.p_u / 2 * (F.softmax(self.image_output, dim=1)[:, 1] + torch.from_numpy(
