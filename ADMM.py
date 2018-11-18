@@ -276,10 +276,6 @@ class ADMM_networks(object):
         # ax2.contour(F.softmax(self.uimage_output, dim=1)[0][1].cpu().data.numpy(),level=(0.5,0.5),colors="red",alpha=0.5)
         ax4.title.set_text('prediction mask')
         ax4.set_axis_off()
-        # plt.tight_layout()
-        # figManager = plt.get_current_fig_manager()
-        # figManager.window.showMaximized()
-
         plt.show(block=False)
         plt.pause(0.01)
 
@@ -530,8 +526,6 @@ class weakly_ADMM_network(ADMM_networks):
             self.s = ((a <= a_[self.upbound]) * 1).reshape(original_shape)
 
     def update_theta(self):
-
-        self.neural_net.zero_grad()
 
         for i in range(5):
             CE_loss = self.CEloss_criterion(self.image_output, self.weak_mask.squeeze(1).long())

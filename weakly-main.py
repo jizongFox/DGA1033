@@ -16,7 +16,6 @@ from torchvision import transforms
 import utils.medicalDataLoader as medicalDataLoader
 from ADMM import weakly_ADMM_network, weakly_ADMM_without_sizeConstraint, weakly_ADMM_without_gc
 from utils.enet import Enet
-from utils.joseent.ENet import ENet as jenet
 from utils.network import UNet
 from utils.utils import Colorize, evaluate_dice
 
@@ -138,6 +137,7 @@ def main(netarch, baseline,episode, inneriter, lamda, sigma, kernelsize, assign_
 
             for i in range(inneriter):
                 net.update_1((img, weak_mask), full_mask)
+                net.show_gamma()
                 net.update_2()
             net.reset()
 
