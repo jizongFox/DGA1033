@@ -1,21 +1,19 @@
+from abc import ABC, abstractmethod
+from enum import Enum
+
+import cv2
 import matplotlib.pyplot as plt
 import maxflow
-from enum import Enum
 import numpy as np
 import torch
-import torch.nn.functional as F
-import cv2
-from abc import ABC, abstractmethod
-import torch
 import torch.nn as nn
-from admm_research.arch import get_arch
-from admm_research.loss import get_loss_fn
-from admm_research.utils import AverageMeter, dice_loss, pred2segmentation
+import torch.nn.functional as F
+
 from admm_research import flags
+from admm_research.utils import AverageMeter, dice_loss, pred2segmentation, extract_from_big_dict
+from admm_research import LOGGER
 
-use_gpu = True
-device = torch.device('cuda') if torch.cuda.is_available() and use_gpu else torch.device('cpu')
-
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class ModelMode(Enum):
     """ Different mode of model """
@@ -39,7 +37,7 @@ class ModelMode(Enum):
 
 
 class AdmmBase(ABC):
-    optim_hparam_keys = ['lr', 'weight_decay', 'amsgrad']
+    optim_hparam_keys = ['lr', 'weight_decay', 'amsgrad', 'optim_inner_loop_num']
 
     @classmethod
     def setup_arch_flags(cls):
@@ -47,12 +45,16 @@ class AdmmBase(ABC):
         flags.DEFINE_float('weight_decay', default=0, help='decay of learning rate schedule')
         flags.DEFINE_float('lr', default=0.005, help='learning rate')
         flags.DEFINE_boolean('amsgrad', default=True, help='amsgrad')
+        flags.DEFINE_integer('optim_inner_loop_num', default=10, help='optim_inner_loop_num')
 
-    def __init__(self, torchnet: nn.Module, optim_hparams: dict) -> None:
+    def __init__(self, torchnet: nn.Module, hparams: dict) -> None:
         super().__init__()
         self.p_u = 1
         self.p_v = 1
+        optim_hparams = extract_from_big_dict(hparams, AdmmBase.optim_hparam_keys)
         self.torchnet = torchnet
+        self.optim_inner_loop_num = optim_hparams['optim_inner_loop_num']
+        optim_hparams.pop('optim_inner_loop_num')
         self.optim = torch.optim.Adam(self.torchnet.parameters(), **optim_hparams)
 
     @abstractmethod
@@ -69,10 +71,11 @@ class AdmmBase(ABC):
         pass
 
     @abstractmethod
-    def _update_theta(self,**kwargs):
+    def _update_theta(self, **kwargs):
         pass
+
     @abstractmethod
-    def reset(self,**kwargs):
+    def reset(self, **kwargs):
         pass
 
     def set_mode(self, mode):
@@ -81,6 +84,24 @@ class AdmmBase(ABC):
             self.torchnet.train()
         else:
             self.torchnet.eval()
+
+    def show(self, name=None, fig_num=1):
+        plt.figure(fig_num, figsize=(5, 5))
+        plt.clf()
+        plt.subplot(1, 1, 1)
+        plt.imshow(self.img[0].cpu().data.numpy().squeeze(), cmap='gray')
+
+        plt.contour(self.weak_gt.squeeze().cpu().data.numpy(), level=[0], colors="yellow", alpha=0.2, linewidth=0.001,
+                    label='GT')
+        plt.contour(self.gt.squeeze().cpu().data.numpy(), level=[0], colors="yellow", alpha=0.2, linewidth=0.001,
+                    label='GT')
+        if name is not None:
+            plt.contour(getattr(self, name), level=[0], colors="red", alpha=0.2, linewidth=0.001, label='name')
+        plt.contour(pred2segmentation(self.score).squeeze().cpu().data.numpy(), level=[0],
+                    colors="green", alpha=0.2, linewidth=0.001, label='CNN')
+        plt.title(name)
+        plt.show(block=False)
+        plt.pause(0.01)
 
     def evaluate(self, dataloader):
         b_dice_meter = AverageMeter()
@@ -98,8 +119,11 @@ class AdmmBase(ABC):
                 b_dice_meter.update(b_iou, image.size(0))
                 f_dice_meter.update(f_iou, image.size(0))
 
-        self.set_mode(ModelMode.EVAL)
+        self.set_mode(ModelMode.TRAIN)
         return b_dice_meter.avg, f_dice_meter.avg
+
+    def to(self,device):
+        self.torchnet.to(device)
 
 
 class AdmmSize(AdmmBase):
@@ -117,28 +141,34 @@ class AdmmSize(AdmmBase):
         flags.DEFINE_integer('global_lowbound', default=20,
                              help='global lower bound if individual_size_constraint is False')
 
-    def __init__(self, torchnet: nn.Module, optim_hparams: dict, size_hyparams: dict) -> None:
-        super().__init__(torchnet, optim_hparams)
-        self.individual_size_constraint = size_hyparams['individual_size_constraint']
+    def __init__(self, torchnet: nn.Module, hparams: dict) -> None:
+        super().__init__(torchnet, hparams)
+        size_hparams = extract_from_big_dict(hparams, AdmmSize.size_hparam_keys)
+        self.individual_size_constraint = size_hparams['individual_size_constraint']
         if self.individual_size_constraint:
-            self.eps = size_hyparams['eps']
+            self.eps = size_hparams['eps']
         else:
-            self.upbound = size_hyparams['global_upbound']
-            self.lowbound = size_hyparams['global_lowbound']
+            self.upbound = size_hparams['global_upbound']
+            self.lowbound = size_hparams['global_lowbound']
 
-    def reset(self,img):
+    def reset(self, img):
+        self.gamma = np.zeros(img.squeeze().shape)
+        self.s = np.zeros(img.squeeze().shape)
         self.s = np.zeros(img.squeeze().shape)
         self.v = np.zeros(img.squeeze().shape)
 
-    def forward_img(self, img, gt, weak_gt):
+    def forward_img(self, img, gt, weak_gt, img_firsttime=True):
         super().forward_img(img, gt, weak_gt)
         if self.individual_size_constraint:
-            self.upbound = int((1 + self.eps) * self.img_size)
-            self.lowbound = int((1 - self.eps) * self.img_size)
+            self.upbound = int((1.0 + self.eps) * self.img_size.item())
+            self.lowbound = int((1.0 - self.eps) * self.img_size.item())
+            # LOGGER.debug('real size: {}, low bound: {}, up bound: {}'.format(self.img_size,self.lowbound,self.upbound))
 
     def update(self, img_gt_weakgt, criterion):
         self.forward_img(*img_gt_weakgt)
         self._update_s()
+        self.show('s')
+        self._update_theta(criterion)
         self._update_v()
 
     def _update_s(self):
@@ -147,15 +177,21 @@ class AdmmSize(AdmmBase):
         a_ = np.sort(a.ravel())
         useful_pixel_number = (a < 0).sum()
         if self.lowbound < useful_pixel_number and self.upbound > useful_pixel_number:
+            # print('in the middle')
             self.s = ((a < 0) * 1.0).reshape(original_shape)
-        if useful_pixel_number < self.lowbound:
+        elif useful_pixel_number <= self.lowbound:
+            # print('too small')
             self.s = ((a <= a_[self.lowbound]) * 1).reshape(original_shape)
-        if useful_pixel_number > self.upbound:
+        elif useful_pixel_number >= self.upbound:
+            # print('too large')
             self.s = ((a <= a_[self.upbound]) * 1).reshape(original_shape)
+        else:
+            raise ('something wrong here.')
+        assert self.s.shape.__len__() == 2
 
     def _update_theta(self, criterion):
 
-        for i in range(5):
+        for i in range(self.optim_inner_loop_num):
             CE_loss = criterion(self.score, self.weak_gt.squeeze(1).long())
             unlabled_loss = self.p_v / 2 * (
                     F.softmax(self.score, dim=1)[:, 1] + torch.from_numpy(-self.s + self.v).float().to(
@@ -167,12 +203,137 @@ class AdmmSize(AdmmBase):
             self.optim.zero_grad()
             loss.backward()
             self.optim.step()
+            print(loss.item())
 
             self.forward_img(self.img, self.gt, self.weak_gt)
 
     def _update_v(self):
-        new_v = self.v + (F.softmax(self.score, dim=1)[:, 1, :, :].cpu().data.numpy() - self.s) * 0.01
+        new_v = self.v + (F.softmax(self.score, dim=1)[:, 1, :, :].cpu().data.numpy().squeeze() - self.s) * 0.01
         self.v = new_v
+
+
+class AdmmGCSize(AdmmSize):
+    size_hparam_keys = [] + AdmmSize.size_hparam_keys
+    optim_hparam_keys = [] + AdmmSize.optim_hparam_keys
+    gc_hparam_keys = ['lamda', 'sigma', 'kernelsize', 'dilation_level']
+
+    @classmethod
+    def setup_arch_flags(cls):
+        super().setup_arch_flags()
+        flags.DEFINE_float('lamda', default=1,
+                           help='balance between the unary and the neighor term')
+        flags.DEFINE_float('sigma', default=0.02, help='Smooth the neigh term')
+        flags.DEFINE_integer('kernelsize', default=5,
+                             help='kernelsize of the gc')
+        flags.DEFINE_integer('dilation_level', default=7,
+                             help='iterations to execute the dilation operation')
+
+    def __init__(self, torchnet: nn.Module, hparams: dict) -> None:
+        super().__init__(torchnet, hparams)
+        gc_hparams = extract_from_big_dict(hparams, AdmmGCSize.gc_hparam_keys)
+        for d, v in gc_hparams.items():
+            setattr(self, d, v)
+        self.is_dilation = True
+
+    def reset(self, img):
+        super().reset(img)
+        self.gamma = np.zeros(img.squeeze().shape)
+        self.u = np.zeros(img.squeeze().shape)
+
+    def update(self, img_gt_weakgt, criterion):
+        self.forward_img(*img_gt_weakgt)
+        self._update_s()
+        self._update_gamma()
+        # self.show('gamma', fig_num=1)
+        # self.show('s', fig_num=2)
+        self._update_theta(criterion)
+        self._update_u()
+        self._update_v()
+
+    def _update_theta(self, criterion):
+        for i in range(self.optim_inner_loop_num):
+            CE_loss = criterion(self.score, self.weak_gt.squeeze(1).long())
+            unlabled_loss = self.p_v / 2 * (
+                    F.softmax(self.score, dim=1)[:, 1] + torch.from_numpy(-self.s + self.v).float().to(
+                device)).norm(p=2) ** 2 \
+                            + self.p_u / 2 * (F.softmax(self.score, dim=1)[:, 1] + torch.from_numpy(
+                -self.gamma + self.u).float().to(device)).norm(p=2) ** 2
+
+            unlabled_loss /= list(self.score.reshape(-1).size())[0]
+
+            loss = CE_loss + unlabled_loss
+            self.optim.zero_grad()
+            loss.backward()
+            self.optim.step()
+
+            self.forward_img(self.img, self.gt, self.weak_gt)
+
+    def _update_gamma(self):
+        unary_term_gamma_1 = np.multiply(
+            (0.5 - (F.softmax(self.score, dim=1).cpu().data.numpy()[:, 1, :, :].squeeze() + self.u)),
+            1)
+        unary_term_gamma_1[(self.weak_gt.squeeze().cpu().data.numpy() == 1).astype(bool)] = -np.inf
+
+        weak_mask = self.weak_gt.cpu().squeeze().numpy()
+
+        kernel = np.ones((5, 5), np.uint8)
+        unary_term_gamma_0 = np.zeros(unary_term_gamma_1.shape)
+
+        if self.is_dilation:
+            dilation = cv2.dilate(weak_mask.astype(np.float32), kernel, iterations=self.dilation_level)
+            unary_term_gamma_1[dilation != 1] = np.inf
+
+        g = maxflow.Graph[float](0, 0)
+        nodeids = g.add_grid_nodes(list(self.gamma.shape))
+        g = self._set_boundary_term(g, nodeids, self.img, lumda=self.lamda, sigma=self.sigma)
+        g.add_grid_tedges(nodeids, (unary_term_gamma_0).squeeze(),
+                          (unary_term_gamma_1).squeeze())
+        g.maxflow()
+        sgm = g.get_grid_segments(nodeids) * 1
+        new_gamma = np.int_(np.logical_not(sgm))
+        if new_gamma.sum() > 0:
+            self.gamma = new_gamma
+        else:
+            self.gamma = self.s
+        assert self.gamma.shape.__len__() == 2
+
+    def _set_boundary_term(self, g, nodeids, img, lumda, sigma):
+        self.kernel = np.ones((self.kernelsize, self.kernelsize))
+        self.kernel[int(self.kernel.shape[0] / 2), int(self.kernel.shape[1] / 2)] = 0
+        kernel = self.kernel
+        transfer_function = lambda pixel_difference: lumda * np.exp((-1 / sigma ** 2) * pixel_difference ** 2)
+
+        img = img.squeeze().cpu().data.numpy()
+
+        # =====new =========================================
+        padding_size = int(max(kernel.shape) / 2)
+        position = np.array(list(zip(*np.where(kernel != 0))))
+
+        def shift_matrix(matrix, kernel):
+            center_x, center_y = int(kernel.shape[0] / 2), int(kernel.shape[1] / 2)
+            [kernel_x, kernel_y] = np.array(list(zip(*np.where(kernel == 1))))[0]
+            dy, dx = kernel_x - center_x, kernel_y - center_y
+            shifted_matrix = np.roll(matrix, -dy, axis=0)
+            shifted_matrix = np.roll(shifted_matrix, -dx, axis=1)
+            return shifted_matrix
+
+        for p in position[:int(len(position) / 2)]:
+            structure = np.zeros(kernel.shape)
+            structure[p[0], p[1]] = kernel[p[0], p[1]]
+            pad_im = np.pad(img, ((padding_size, padding_size), (padding_size, padding_size)), 'constant',
+                            constant_values=0)
+            shifted_im = shift_matrix(pad_im, structure)
+            weights_ = transfer_function(
+                np.abs(pad_im - shifted_im)[padding_size:-padding_size, padding_size:-padding_size])
+
+            g.add_grid_edges(nodeids, structure=structure, weights=weights_, symmetric=True)
+
+        return g
+
+    def _update_u(self):
+        new_u = self.u + (F.softmax(self.score, dim=1)[:, 1, :, :].cpu().data.numpy().squeeze() - self.gamma) * 0.01
+        self.u = new_u
+        assert self.u.shape.__len__() == 2
 
 
 class ADMM_networks(object):

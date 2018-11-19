@@ -6,224 +6,14 @@ import torch
 import torch.nn.functional as F
 from utils.criterion import CrossEntropyLoss2d
 import maxflow, cv2
+from admm_research.method import ModelMode
+from admm_research.utils import AverageMeter, dice_loss
 
 sys.path.insert(-1, os.getcwd())
 warnings.filterwarnings('ignore')
+use_gpu = True
+device = torch.device('cuda') if torch.cuda.is_available() and use_gpu else torch.device('cpu')
 
-'''
-class ADMM_INEQUALITY(object):
-
-
-    def __init__(self, neural_network, eps, lamda, size_eps) -> None:
-        super().__init__()
-        self.CNN = neural_network
-        self.eps = eps
-        self.size_eps = eps
-        self.innerloop_num_CNN = 10
-        self.optim = torch.optim.Adam(self.CNN.parameters(), lr=1e-4, weight_decay=1e-5)
-        self.CE_criterion = CrossEntropyLoss2d()
-        self.p_regu_plus = 10
-        self.p_regu_neg = 10
-        self.p_size_plus = 10
-        self.p_size_neg = 10
-        self.regularzation_parameters = {
-            'lamda': lamda,
-            'sigma': 0.02,
-            'kernelsize': 7
-        }
-
-        self.__reset__()
-
-    def initial_kernel(self):
-        self.kernel = np.ones(
-            (self.regularzation_parameters['kernelsize'], self.regularzation_parameters['kernelsize']))
-        self.kernel[int(self.kernel.shape[0] / 2), int(self.kernel.shape[1] / 2)] = 0
-
-    def __reset__(self):
-        self.loutput = None
-        self.uoutput = None
-        self.Y_reg = None
-        self.Y_size = None
-        self.CNN.zero_grad()
-        self.optim.zero_grad()
-        self.waiting_for_init = True
-
-    def __output2mask(self, output):
-        return output.max(1)[1]
-
-    def __init_slack_variables__(self):
-
-        self.Y_reg = self.__output2mask(self.uoutput).squeeze().numpy()
-        self.Y_size = self.__output2mask(self.uoutput).squeeze().numpy()
-        self.s_reg_p = np.zeros(*self.Y_reg.shape)
-        self.s_reg_n = np.zeros(*self.Y_reg.shape)
-        self.s_size_p = np.zeros(*self.Y_size.shape)
-        self.s_size_n = np.zeros(*self.Y_size.shape)
-        self.multiplier_reg_p = np.zeros(*self.Y_reg.shape)
-        self.multiplier_reg_n = np.zeros(*self.Y_reg.shape)
-        self.multiplier_size_p = np.zeros(*self.Y_size.shape)
-        self.multiplier_size_n = np.zeros(*self.Y_size.shape)
-        self.waiting_for_init = False
-
-    def forward_labeled_image(self, limage_GT):
-        [limage, lGT] = limage_GT
-        self.limage = limage
-        self.lGT = lGT
-        self.loutput = self.CNN(limage)
-
-    def forward_unlabeled_image(self, uimage_GT):
-        [self.uimage, umask] = uimage_GT
-        self.uoutput = self.CNN(self.uimage)
-        if self.waiting_for_init:
-            self.__init_slack_variables__()
-
-            uimage_size = umask.sum()
-            self.lowbound = uimage_size * (1 - self.eps)
-            self.upbound = uimage_size * (1 + self.eps)
-
-    def __update_CNN__(self, limage, lGT, uimage):
-        for i in range(self.innerloop_num_CNN):
-            self.forward_labeled_image([limage, lGT])
-            self.forward_unlabeled_image(uimage)
-
-            labeled_loss = self.CE_criterion(self.loutput, self.lGT)
-            unlabeled_loss = \
-                self.p_regu_plus * (F.softmax(self.uoutput, 1)[:, 1] - torch.Tensor(
-                    self.Y_reg + 0.5 - self.eps - self.s_reg_n - self.multiplier_reg_p)).norm(2) \
-                + self.p_regu_neg * (F.softmax(self.uoutput, 1)[:, 1] - torch.Tensor(
-                    self.Y_reg - 0.5 + self.eps + self.s_reg_p - self.multiplier_reg_n)).norm(2) \
-                + self.p_size_plus * (F.softmax(self.uoutput, 1)[:, 1] - torch.Tensor(
-                    self.Y_size + 0.5 - self.eps - self.s_size_n - self.multiplier_size_p)).norm(2) \
-                + self.p_size_neg * (F.softmax(self.uoutput, 1)[:, 1] - torch.Tensor(
-                    self.Y_size - 0.5 + self.eps + self.s_size_p - self.multiplier_size_n)).norm(2)
-
-            loss = labeled_loss + unlabeled_loss
-            self.optim.zero_grad()
-            loss.backward()
-            self.optim.step()
-
-    def __update_Reg__(self):
-        unary_term_gamma_1 = np.multiply(
-            (1 - F.softmax(self.uoutput, dim=1).cpu().data.numpy()[:, 1, :,
-                 :] - self.eps - self.s_reg_n - self.multiplier_reg_p),
-            self.p_regu_plus) + np.multiply(
-            (- F.softmax(self.uoutput, dim=1).cpu().data.numpy()[:, 1, :,
-               :] + self.eps + self.s_reg_p - self.multiplier_reg_n),
-            self.p_regu_neg)
-
-        unary_term_gamma_0 = np.zeros(unary_term_gamma_1.shape)
-        new_gamma = np.zeros(self.gamma.shape)
-        g = maxflow.Graph[float](0, 0)
-        # Add the nodes.
-        nodeids = g.add_grid_nodes(list(self.gamma.shape)[1:])
-        # Add edges with the same capacities.
-
-        # g.add_grid_edges(nodeids, neighbor_term)
-        g = self.__set_boundary_term__(g, nodeids, self.uimage)
-
-        # Add the terminal edges.
-        g.add_grid_tedges(nodeids, (unary_term_gamma_0[0]).squeeze(),
-                          (unary_term_gamma_1[0]).squeeze())
-        g.maxflow()
-        # Get the segments.
-        sgm = g.get_grid_segments(nodeids) * 1
-
-        # The labels should be 1 where sgm is False and 0 otherwise.
-        new_gamma[0] = np.int_(np.logical_not(sgm))
-
-        if new_gamma.sum() > 0:
-            self.Y_reg = new_gamma
-        else:
-            raise ValueError
-
-    def __set_boundary_term__(self, g, nodeids, img):
-        kernel = self.kernel
-        sigma = self.regularzation_parameters['sigma']
-        lumda = self.regularzation_parameters['lamda']
-        transfer_function = lambda pixel_difference: lumda * np.exp((-1 / sigma ** 2) * pixel_difference ** 2)
-        img = img.squeeze().cpu().data.numpy()
-
-        # =====new =========================================
-        padding_size = int(max(kernel.shape) / 2)
-        position = np.array(list(zip(*np.where(kernel != 0))))
-
-        def shift_matrix(matrix, kernel):
-            center_x, center_y = int(kernel.shape[0] / 2), int(kernel.shape[1] / 2)
-            [kernel_x, kernel_y] = np.array(list(zip(*np.where(kernel == 1))))[0]
-            dy, dx = kernel_x - center_x, kernel_y - center_y
-            shifted_matrix = np.roll(matrix, -dy, axis=0)
-            shifted_matrix = np.roll(shifted_matrix, -dx, axis=1)
-            return shifted_matrix
-
-        for p in position[:int(len(position) / 2)]:
-            structure = np.zeros(kernel.shape)
-            structure[p[0], p[1]] = kernel[p[0], p[1]]
-            pad_im = np.pad(img, ((padding_size, padding_size), (padding_size, padding_size)), 'constant',
-                            constant_values=0)
-            shifted_im = shift_matrix(pad_im, structure)
-            weights_ = transfer_function(
-                np.abs(pad_im - shifted_im)[padding_size:-padding_size, padding_size:-padding_size])
-
-            g.add_grid_edges(nodeids, structure=structure, weights=weights_, symmetric=True)
-
-        return g
-
-    def __update_Szie__(self):
-        a = self.p_size_plus * (1 - F.softmax(self.uoutput,
-                                              1).cpu().data.numpy().squeeze() - self.eps - self.s_size_n - self.multiplier_size_p) + self.p_size_neg * (
-                        -F.softmax(self.uoutput,
-                                   1).cpu().data.numpy().squeeze() + self.eps + self.s_size_p - self.multiplier_reg_n)
-
-        # a = 0.5 - (F.softmax(self.uimage_output, 1)[:, 1].cpu().data.numpy().squeeze() + self.v)
-        original_shape = a.shape
-
-        a_ = np.sort(a.ravel())
-        useful_pixel_number = (a < 0).sum()
-        if self.lowbound < useful_pixel_number and self.upbound > useful_pixel_number:
-            self.Y_size = ((a < 0) * 1.0).reshape(original_shape)
-        if useful_pixel_number < self.lowbound:
-            self.Y_size = ((a <= a_[self.lowbound]) * 1).reshape(original_shape)
-        if useful_pixel_number > self.upbound:
-            self.Y_size = ((a <= a_[self.upbound]) * 1).reshape(original_shape)
-
-    def __update_svariable_Reg(self):
-        self.s_reg_p = np.maximum(F.softmax(self.uoutput,
-                                            1).cpu().data.numpy().squeeze() - self.Y_reg + 0.5 - self.eps + self.multiplier_reg_n,
-                                  np.zeros(*self.Y_reg.shape))
-        self.s_reg_n = np.maximum(-F.softmax(self.uoutput,
-                                             1).cpu().data.numpy().squeeze() + self.Y_reg + 0.5 - self.eps - self.multiplier_reg_p,
-                                  np.zeros(*self.Y_reg.shape))
-
-    def __update_svariable_Size(self):
-        self.s_size_p = np.maximum(F.softmax(self.uoutput,
-                                             1).cpu().data.numpy().squeeze() - self.Y_size + 0.5 - self.eps + self.multiplier_size_n,
-                                   np.zeros(*self.Y_reg.shape))
-        self.s_size_n = np.maximum(-F.softmax(self.uoutput,
-                                              1).cpu().data.numpy().squeeze() + self.Y_size + 0.5 - self.eps - self.multiplier_size_p,
-                                   np.zeros(*self.Y_reg.shape))
-
-    def __update__multipliers_Reg(self):
-        self.multiplier_reg_p = self.multiplier_reg_p + (F.softmax(self.uoutput, 1).cpu().data.numpy().squeeze() - (
-                    self.Y_reg + 0.5 - self.eps - self.s_size_n))
-        self.multiplier_reg_n = self.multiplier_reg_n + (F.softmax(self.uoutput, 1).cpu().data.numpy().squeeze() - (
-                    self.Y_reg - 0.5 + self.eps + self.s_size_p))
-
-    def __update_multipliers_Size(self):
-        self.multiplier_size_p = self.multiplier_size_p + (F.softmax(self.uoutput, 1).cpu().data.numpy().squeeze() - (
-                    self.Y_size + 0.5 - self.eps - self.s_size_n))
-        self.multiplier_size_n = self.multiplier_size_n + (F.softmax(self.uoutput, 1).cpu().data.numpy().squeeze() - (
-                    self.Y_size - 0.5 + self.eps + self.s_size_p))
-
-    def update(self, limage, lGT, uimage):
-
-        self.__update_Reg__()
-        self.__update_Szie__()
-        self.__update_CNN__(limage, lGT, uimage)
-        self.__update_svariable_Reg()
-        self.__update_svariable_Size()
-        self.__update__multipliers_Reg()
-        self.__update_multipliers_Size()
-'''
 
 class constraint:
 
@@ -237,17 +27,16 @@ class constraint:
         [image, full_mask, weak_mask, S] = image_fullmask_weakmask_S_pair
         self.image = image
         self.weak_mask = weak_mask.cpu().squeeze().numpy()
-        self.full_mask= full_mask.cpu().squeeze().numpy()
+        self.full_mask = full_mask.cpu().squeeze().numpy()
         self.S = S
         self.S_proba = F.softmax(S, 1)[:, 1].data.numpy().squeeze()
         self.__set_default_parametes()
         for k, v in kwargs.items():
             setattr(self, k, v)
         self.__init_variables()
-        if self.name=='size':
-            self.lowbound = int(self.full_mask.sum()*(1-self.eps_size))
-            self.upbound = int(self.full_mask.sum()*(1+self.eps_size))
-
+        if self.name == 'size':
+            self.lowbound = int(self.full_mask.sum() * (1 - self.eps_size))
+            self.upbound = int(self.full_mask.sum() * (1 + self.eps_size))
 
     def __set_default_parametes(self):
         if self.name == 'reg':
@@ -259,8 +48,8 @@ class constraint:
             self.kernelsize = 5
             self.dilation_level = 10
 
-        elif self.name=='size':
-            self.eps= 0.25
+        elif self.name == 'size':
+            self.eps = 0.25
             self.eps_size = 0.1
             self.p_p = 10
             self.p_n = 10
@@ -282,7 +71,6 @@ class constraint:
     def update_S(self, S):
         self.S = S
         self.S_proba = F.softmax(S, 1)[:, 1].data.numpy().squeeze()
-
 
     def update_Y(self):
         if self.name == 'reg':
@@ -321,7 +109,7 @@ class constraint:
             else:
                 raise ValueError
 
-        elif self.name=='size':
+        elif self.name == 'size':
             a = np.multiply(
                 (1 - self.S_proba - self.eps - self.s_n - self.U_p),
                 self.p_p) + np.multiply(
@@ -351,19 +139,19 @@ class constraint:
         self.U_n = self.U_n + (self.S_proba - (self.Y - 0.5 + self.eps + self.s_p)) * 1
 
     def return_L2_loss(self):
-        loss= self.p_p * (F.softmax(self.S, 1)[:,1].squeeze() - torch.Tensor(
+        loss = self.p_p * (F.softmax(self.S, 1)[:, 1].squeeze() - torch.Tensor(
             self.Y + 0.5 - self.eps - self.s_n - self.U_p).float()).norm(2) \
-               + self.p_n * (F.softmax(self.S, 1)[:,1].squeeze() - torch.Tensor(
+               + self.p_n * (F.softmax(self.S, 1)[:, 1].squeeze() - torch.Tensor(
             self.Y - 0.5 + self.eps + self.s_p - self.U_n).float()).norm(2)
-        return loss/self.Y.reshape(-1).size
+        return loss / self.Y.reshape(-1).size
 
     def update(self, S):
-
 
         self.update_S(S)
         self.update_Y()
         self.update_svariables()
         self.update_multipliers()
+        return self.return_L2_loss()
 
     def __set_boundary_term__(self, g, nodeids, img):
         '''
@@ -406,61 +194,53 @@ class constraint:
     def __initial_kernel(self):
         self.kernel = np.ones((self.kernelsize, self.kernelsize))
         self.kernel[int(self.kernel.shape[0] / 2), int(self.kernel.shape[1] / 2)] = 0
+
     def heatmap2segmentation(self, heatmap):
         return heatmap.max(1)[1]
 
-    def show_S(self):
-        plt.figure(1)
-        plt.clf()
-        plt.imshow(self.S_proba)
-        plt.colorbar()
-        plt.show(block=False)
-    def show_Y(self):
-        plt.figure(2)
-        plt.clf()
-        plt.imshow(self.Y)
-        plt.colorbar()
-        plt.show(block=False)
-    def show_U_p(self):
-        plt.figure(3)
-        plt.clf()
-        plt.imshow(self.U_p)
-        plt.colorbar()
-        plt.show(block=False)
-    def show_U_n(self):
-        plt.figure(4)
-        plt.clf()
-        plt.imshow(self.U_n)
-        plt.colorbar()
-        plt.show(block=False)
-    def show_gamma(self):
-        plt.figure(3, figsize=(5, 5))
-        plt.clf()
-        plt.subplot(1, 1, 1)
-        plt.imshow(self.image.cpu().data.numpy().squeeze(), cmap='gray')
 
-        plt.contour(self.weak_mask.squeeze(), level=[0], colors="yellow", alpha=0.2, linewidth=0.001,
-                    label='GT')
-        plt.contour(self.full_mask.squeeze(), level=[0], colors="yellow", alpha=0.2, linewidth=0.001,
-                    label='GT')
+class ADMM_inequality():
+    '''
+    this is a wrapper class using inequality constraint class
+    '''
 
-        plt.contour(self.Y, level=[0], colors="red", alpha=0.2, linewidth=0.001, label='graphcut')
-        # plt.contour(self.s.squeeze(), level=[0], colors='blue', alpha=0.2, linewidth=0.001, label='size_constraint')
-        plt.contour(self.heatmap2segmentation(self.S).squeeze().cpu().data.numpy(), level=[1],
-                    colors="green", alpha=0.2, linewidth=0.001, label='CNN')
-        plt.title('Gamma')
-        # figManager = plt.get_current_fig_manager()
-        # figManager.window.showMaximized()
-        # plt.legend()
-        plt.show(block=False)
-        plt.pause(0.01)
+    def __init__(self, torchnet, list_of_constraints, optim_hparams) -> None:
+        super().__init__()
+        self.torchnet = torchnet
+        self.constraints = list_of_constraints
 
+    def set_mode(self, mode):
+        assert mode in (ModelMode.TRAIN, ModelMode.EVAL)
+        if mode == ModelMode.TRAIN:
+            self.torchnet.train()
+        else:
+            self.torchnet.eval()
+
+    def evaluate(self, dataloader):
+        b_dice_meter = AverageMeter()
+        f_dice_meter = AverageMeter()
+        self.set_mode(ModelMode.EVAL)
+        with torch.no_grad():
+
+            for i, (image, mask, weak_mask, pathname) in enumerate(dataloader):
+                if mask.sum() == 0 or weak_mask.sum() == 0:
+                    continue
+                image, mask, weak_mask = image.to(device), mask.to(device), weak_mask.to(device)
+                proba = F.softmax(self.torchnet(image), dim=1)
+                predicted_mask = proba.max(1)[1]
+                [b_iou, f_iou] = dice_loss(predicted_mask, mask)
+                b_dice_meter.update(b_iou, image.size(0))
+                f_dice_meter.update(f_iou, image.size(0))
+
+        self.set_mode(ModelMode.TRAIN)
+        return b_dice_meter.avg, f_dice_meter.avg
 
 
 class ADMM():
     '''
 
     '''
+
     def __init__(self, CNN) -> None:
         super().__init__()
         self.cnn = CNN
@@ -487,10 +267,10 @@ class ADMM():
                 self.constranit2.update_S(self.S)
                 reg_loss = self.constraint.return_L2_loss()
                 size_loss = self.constranit2.return_L2_loss()
-                ce_loss = self.partialCE_criterion(self.S,weak_mask.squeeze(1).long())
-                loss = ce_loss/10+ reg_loss+size_loss
+                ce_loss = self.partialCE_criterion(self.S, weak_mask.squeeze(1).long())
+                loss = ce_loss / 10 + reg_loss + size_loss
                 loss.backward()
-                print('CE:',ce_loss.item(),'Reg_loss:',reg_loss.item(),'Size_loss:', size_loss.item())
+                print('CE:', ce_loss.item(), 'Reg_loss:', reg_loss.item(), 'Size_loss:', size_loss.item())
 
                 self.optim.step()
 
