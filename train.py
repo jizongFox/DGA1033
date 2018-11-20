@@ -12,21 +12,19 @@ torch.set_num_threads(1)
 
 def run(argv):
     del argv
-    hparams = flags.FLAGS.flag_values_dict()
 
+    hparams = flags.FLAGS.flag_values_dict()
+    print(hparams)
     root_dir = 'admm_research/dataset/ACDC-2D-All'
 
-    train_dataset = MedicalImageDataset(root_dir, 'train', transform=segment_transform((128, 128)), augment=None)
-    val_dataset = MedicalImageDataset(root_dir, 'val', transform=segment_transform((128, 128)), augment=None)
+    train_dataset = MedicalImageDataset(root_dir, 'train', transform=segment_transform((200, 200)), augment=None)
+    val_dataset = MedicalImageDataset(root_dir, 'val', transform=segment_transform((200, 200)), augment=None)
 
     arch_hparams = extract_from_big_dict(hparams, AdmmGCSize.arch_hparam_keys)
-    arch = arch_hparams['arch']
-    arch_hparams.pop('arch')
-    torchnet = get_arch(arch, **arch_hparams)
-    method = hparams['method']
-    admm = get_method(method, torchnet, **hparams)
-    weight = torch.Tensor([0, 1])
-    criterion = get_loss_fn('cross_entropy', weight=weight)
+    torchnet = get_arch(arch_hparams['arch'], arch_hparams)
+    # torchnet.load_state_dict(torch.load('checkpoints/weakly/enet_fdice_0.8906.pth',map_location=lambda storage, loc: storage))
+    admm = get_method(hparams['method'], torchnet, **hparams)
+    criterion = get_loss_fn('partial_ce')
     trainer = ADMM_Trainer(admm, [train_dataset, val_dataset], criterion, hparams)
     trainer.start_training()
 

@@ -1,7 +1,8 @@
-from .loss import CrossEntropyLoss2d, MSE_2D
+from .loss import CrossEntropyLoss2d, MSE_2D,PartialCrossEntropyLoss2d
 
 LOSS = {'cross_entropy': CrossEntropyLoss2d,
-        'mse_2d': MSE_2D}
+        'mse_2d': MSE_2D,
+        'partial_ce':PartialCrossEntropyLoss2d}
 
 
 def get_loss_fn(name: str, **kwargs):

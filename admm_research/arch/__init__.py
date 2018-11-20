@@ -43,8 +43,9 @@ Public interface
 """
 
 
-def get_arch(arch, **kwargs):
+def get_arch(arch, kwargs):
     """ Get the architecture. Return a torch.nn.Module """
     arch_callable = ARCH_CALLABLES.get(arch)
+    kwargs.pop('arch')
     assert arch_callable, "Architecture {} is not found!".format(arch)
     return arch_callable(**kwargs)

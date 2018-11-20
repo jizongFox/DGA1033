@@ -67,27 +67,37 @@ class ADMM_Trainer(Base):
         self.train_loader, self.val_loader = self._build_dataset(datasets, self.hparams)
 
     def start_training(self):
-        epoch = 0
-        while epoch <= self.hparams['max_epoch']:
+        for epoch in range(self.hparams['max_epoch']):
+            self.lr_scheduler.step()
             self._main_loop(self.train_loader, epoch)
             with torch.no_grad():
                 f_dice = self._evaluate(self.train_loader)
                 LOGGER.info('At epoch {}, train acc is {:3f}%, under EVAL mode'.format(epoch, f_dice * 100))
                 f_dice = self._evaluate(self.val_loader)
                 LOGGER.info('At epoch {}, val acc is {:3f}%, under EVAL mode'.format(epoch, f_dice * 100))
-            epoch = +1
+            if epoch >= self.hparams['stop_dilation']:
+                self.admm.is_dilation = False
 
     def _main_loop(self, dataloader, epoch, mode=ModelMode.TRAIN):
         dataloader.dataset.set_mode(mode)
         self.admm.set_mode(mode)
 
         for i, (img, gt, wgt, _) in tqdm(enumerate(dataloader)):
-            if gt.sum() == 0 or wgt.sum() == 0:
+            if wgt.sum() == 0 and gt.sum() != 0:
                 continue
+
             img, gt, wgt = img.to(self.device), gt.to(self.device), wgt.to(self.device)
             self.admm.reset(img)
-            for j in range(self.hparams['num_admm_innerloop']):
+            for j in range(self.hparams['num_admm_innerloop']):  #
                 self.admm.update((img, gt, wgt), self.criterion)
+                try:
+                    self.admm.show('gamma', fig_num=2)
+                except Exception as e:
+                    print(e)
+                try:
+                    self.admm.show('s', fig_num=3)
+                except Exception as e:
+                    print(e)
         LOGGER.info('%s %d complete' % (mode.value, epoch))
 
     def _evaluate(self, dataloader):

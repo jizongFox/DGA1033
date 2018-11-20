@@ -42,11 +42,6 @@ def make_dataset(root, mode):
         labels = os.listdir(train_mask_path)
         labels_weak = os.listdir(train_mask_weak_path)
 
-        ## 去掉第一张 没有ground truth的图像
-        # images = [x for x in images if x.split('.')[0].split('_')[2]!='1' ]
-        # labels = [x for x in labels if x.split('.')[0].split('_')[2]!='1']
-        # labels_weak = [x for x in labels_weak if x.split('.')[0].split('_')[2]!='1']
-
         images.sort()
         labels.sort()
         labels_weak.sort()

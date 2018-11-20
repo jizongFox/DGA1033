@@ -1,4 +1,4 @@
-# import torch
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -9,6 +9,16 @@ class CrossEntropyLoss2d(nn.Module):
         super(CrossEntropyLoss2d, self).__init__()
 
         self.loss = nn.NLLLoss(weight, reduce=reduce, size_average=size_average)
+
+    def forward(self, outputs, targets):
+        return self.loss(F.log_softmax(outputs, dim=1), targets)
+
+class PartialCrossEntropyLoss2d(nn.Module):
+
+    def __init__(self,reduce=True, size_average=True):
+        super(PartialCrossEntropyLoss2d, self).__init__()
+        weight = torch.Tensor([0,1])
+        self.loss = nn.NLLLoss(weight=weight, reduce=reduce, size_average=size_average)
 
     def forward(self, outputs, targets):
         return self.loss(F.log_softmax(outputs, dim=1), targets)
