@@ -2,10 +2,10 @@ from abc import ABC, abstractmethod
 from admm_research import flags, LOGGER
 from admm_research.method import AdmmGCSize
 from admm_research.utils import extract_from_big_dict
-import torch
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 from admm_research.method import ModelMode
+import torch
 
 
 class Base(ABC):
@@ -63,6 +63,7 @@ class ADMM_Trainer(Base):
         self.lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(self.admm.optim, **lr_scheduler_hparams)
         self.device = torch.device(hparams['device'])
         self.admm.to(self.device)
+        self.criterion.to(self.device)
         self.train_loader, self.val_loader = self._build_dataset(datasets, self.hparams)
 
     def start_training(self):

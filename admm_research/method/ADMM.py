@@ -15,6 +15,7 @@ from admm_research import LOGGER
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+
 class ModelMode(Enum):
     """ Different mode of model """
     TRAIN = 'TRAIN'  # during training
@@ -38,6 +39,7 @@ class ModelMode(Enum):
 
 class AdmmBase(ABC):
     optim_hparam_keys = ['lr', 'weight_decay', 'amsgrad', 'optim_inner_loop_num']
+    arch_hparam_keys = ['arch', 'num_classes']
 
     @classmethod
     def setup_arch_flags(cls):
@@ -46,6 +48,9 @@ class AdmmBase(ABC):
         flags.DEFINE_float('lr', default=0.005, help='learning rate')
         flags.DEFINE_boolean('amsgrad', default=True, help='amsgrad')
         flags.DEFINE_integer('optim_inner_loop_num', default=10, help='optim_inner_loop_num')
+        flags.DEFINE_string('arch', default='enet', help='arch_name')
+        flags.DEFINE_integer('num_classes', default=2, help='num of classes')
+        flags.DEFINE_string('method', default='admm_gc_size', help='arch_name')
 
     def __init__(self, torchnet: nn.Module, hparams: dict) -> None:
         super().__init__()
@@ -122,7 +127,7 @@ class AdmmBase(ABC):
         self.set_mode(ModelMode.TRAIN)
         return b_dice_meter.avg, f_dice_meter.avg
 
-    def to(self,device):
+    def to(self, device):
         self.torchnet.to(device)
 
 

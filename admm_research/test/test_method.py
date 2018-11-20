@@ -49,8 +49,8 @@ def test_admm_gc_size():
     AdmmGCSize.setup_arch_flags()
     hparams = flags.FLAGS.flag_values_dict()
     torchnet = get_arch('enet', **{'num_classes': 2})
-    torchnet.load_state_dict(torch.load('/Users/jizong/workspace/DGA1033/checkpoints/weakly/enet_fdice_0.8906.pth',
-                                        map_location=lambda storage, loc: storage))
+    # torchnet.load_state_dict(torch.load('/Users/jizong/workspace/DGA1033/checkpoints/weakly/enet_fdice_0.8906.pth',
+                                        # map_location=lambda storage, loc: storage))
 
     weight = torch.Tensor([0, 1])
     criterion = get_loss_fn('cross_entropy', weight=weight)
