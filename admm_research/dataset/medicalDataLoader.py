@@ -81,6 +81,7 @@ class MedicalImageDataset(Dataset):
             transform (callable, optional): Optional transform to be applied
                 on a sample.
         """
+        self.name = mode + '_dataset'
         self.root_dir = root_dir
         self.transform = transform
         self.imgs = make_dataset(root_dir, mode)
@@ -89,7 +90,7 @@ class MedicalImageDataset(Dataset):
         self.training = ModelMode.TRAIN
 
     def __len__(self):
-        return int(len(self.imgs))
+        return int(len(self.imgs)/5)
 
     def set_mode(self, mode):
         assert isinstance(mode, (str, ModelMode)), 'the type of mode should be str or ModelMode, given %s' % str(mode)

@@ -48,7 +48,7 @@ def test_admm_gc_size():
     val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False)
     AdmmGCSize.setup_arch_flags()
     hparams = flags.FLAGS.flag_values_dict()
-    torchnet = get_arch('enet', **{'num_classes': 2})
+    torchnet = get_arch('enet', {'num_classes': 2})
     # torchnet.load_state_dict(torch.load('/Users/jizong/workspace/DGA1033/checkpoints/weakly/enet_fdice_0.8906.pth',
                                         # map_location=lambda storage, loc: storage))
 

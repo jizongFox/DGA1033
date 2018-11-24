@@ -1,11 +1,10 @@
 from abc import ABC, abstractmethod
 from admm_research import flags, LOGGER, config_logger
 from admm_research.method import AdmmGCSize
-from admm_research.utils import extract_from_big_dict
+from admm_research.utils import extract_from_big_dict, Writter_tf
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 from admm_research.method import ModelMode
-from tensorboardX import SummaryWriter
 import torch, os, shutil
 
 
@@ -47,8 +46,8 @@ class ADMM_Trainer(Base):
     @classmethod
     def setup_arch_flags(cls):
         flags.DEFINE_integer('max_epoch', default=200, help='number of max_epoch')
-        flags.DEFINE_multi_integer('milestones', default=[30,50,80, 100, 130, 160], help='miletones for lr_decay')
-        flags.DEFINE_float('gamma', default=0.3, help='gamma for lr_decay')
+        flags.DEFINE_multi_integer('milestones', default=[30, 50, 70, 90, 120, 140, 160], help='miletones for lr_decay')
+        flags.DEFINE_float('gamma', default=0.5, help='gamma for lr_decay')
         flags.DEFINE_string('device', default='cpu', help='cpu or cuda?')
         flags.DEFINE_integer('printfreq', default=5, help='how many output for an epoch')
         flags.DEFINE_integer('num_admm_innerloop', default=2, help='how many output for an epoch')
@@ -69,26 +68,31 @@ class ADMM_Trainer(Base):
         self.admm.to(self.device)
         self.criterion.to(self.device)
         self.train_loader, self.val_loader = self._build_dataset(datasets, self.hparams)
-        self.writer_name = os.path.join(ADMM_Trainer.src, self.generate_current_time() + '_' + self.generate_random_str())
-        self.writer = SummaryWriter(self.writer_name)
-        self.save_hparams()
+        self.writer_name = os.path.join(ADMM_Trainer.src,
+                                        self.generate_current_time() + '_' + self.generate_random_str())
+        self.writer = Writter_tf(self.writer_name, self.admm.torchnet, num_img=30)
         config_logger(self.writer_name)
+        self.save_hparams()
 
     def start_training(self):
+        LOGGER.info('begin training with max_epoch = %d' % self.hparams['max_epoch'])
         for epoch in range(self.hparams['max_epoch']):
             self.lr_scheduler.step()
             self._main_loop(self.train_loader, epoch)
             with torch.no_grad():
                 f_dice = self._evaluate(self.train_loader)
+                self.writer.add_scalar('train/dice', f_dice, epoch)
+                self.writer.add_images(self.train_loader, epoch, device=self.device)
                 LOGGER.info('At epoch {}, train acc is {:3f}%, under EVAL mode'.format(epoch, f_dice * 100))
-                self.writer.add_scalar('train/dice',f_dice,epoch)
+
                 f_dice = self._evaluate(self.val_loader)
-                self.writer.add_scalar('val/dice',f_dice,epoch)
+                self.writer.add_scalar('val/dice', f_dice, epoch)
+                self.writer.add_images(self.val_loader, epoch, device=self.device)
                 LOGGER.info('At epoch {}, val acc is {:3f}%, under EVAL mode'.format(epoch, f_dice * 100))
             if epoch >= self.hparams['stop_dilation_epoch']:
                 self.admm.is_dilation = False
         ## clean up
-        self.cleanup()
+        self.writer.cleanup()
 
     def _main_loop(self, dataloader, epoch, mode=ModelMode.TRAIN):
         dataloader.dataset.set_mode(mode)
@@ -108,7 +112,7 @@ class ADMM_Trainer(Base):
 
         LOGGER.info('%s %d complete' % (mode.value, epoch))
 
-    def _evaluate(self, dataloader, mode = ModelMode.EVAL):
+    def _evaluate(self, dataloader, mode=ModelMode.EVAL):
         self.admm.set_mode(mode)
         dataloader.dataset.set_mode(mode)
         assert self.admm.torchnet.training == False
@@ -165,14 +169,6 @@ class ADMM_Trainer(Base):
             opt_file.write(message)
             opt_file.write('\n')
         pd.Series(self.hparams).to_csv(os.path.join(self.writer_name, 'opt.csv'))
-
-    def cleanup(self):
-        self.writer.export_scalars_to_json(os.path.join(self.writer_name,'json.json'))
-        self.writer.close()
-        src = ADMM_Trainer.src
-        des = ADMM_Trainer.des
-        writerbasename = os.path.basename(self.writer_name)
-        shutil.move(os.path.join(src, writerbasename), os.path.join(des, writerbasename))
 
     def visualize_during_Training(self):
         try:

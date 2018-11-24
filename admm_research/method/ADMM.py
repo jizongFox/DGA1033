@@ -106,7 +106,7 @@ class AdmmBase(ABC):
         plt.contour(self.gt.squeeze().cpu().data.numpy(), level=[0], colors="yellow", alpha=0.2, linewidth=0.001,
                     label='GT')
         if name is not None:
-            plt.contour(getattr(self, name), level=[0], colors="red", alpha=0.2, linewidth=0.001, label='name')
+            plt.contour(getattr(self, name), level=[0], colors="red", alpha=0.2, linewidth=0.001, label=name)
         plt.contour(pred2segmentation(self.score).squeeze().cpu().data.numpy(), level=[0],
                     colors="green", alpha=0.2, linewidth=0.001, label='CNN')
         plt.title(name)
