@@ -2,7 +2,6 @@
 import os
 import sys
 import warnings
-
 sys.path.insert(-1, os.getcwd())
 
 import matplotlib.pyplot as plt
@@ -21,7 +20,7 @@ from tensorboardX import SummaryWriter
 from torchvision.utils import make_grid
 import click
 
-torch.set_num_threads(2)
+torch.set_num_threads(1)
 warnings.filterwarnings('ignore')
 use_gpu = True
 device = torch.device('cuda') if torch.cuda.is_available() and use_gpu else torch.device('cpu')

@@ -3,3 +3,5 @@
 *dataset/*
 checkpoints/*
 results/*
+.DS_Store
+run/

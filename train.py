@@ -6,7 +6,8 @@ from admm_research.arch import get_arch
 from admm_research.trainer import ADMM_Trainer
 from admm_research.utils import extract_from_big_dict
 import torch
-
+import warnings
+warnings.filterwarnings('ignore')
 torch.set_num_threads(1)
 
 
@@ -14,7 +15,7 @@ def run(argv):
     del argv
 
     hparams = flags.FLAGS.flag_values_dict()
-    print(hparams)
+    # print(hparams)
     root_dir = 'admm_research/dataset/ACDC-2D-All'
 
     train_dataset = MedicalImageDataset(root_dir, 'train', transform=segment_transform((200, 200)), augment=None)

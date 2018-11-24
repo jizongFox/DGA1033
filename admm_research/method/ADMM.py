@@ -91,6 +91,11 @@ class AdmmBase(ABC):
             self.torchnet.eval()
 
     def show(self, name=None, fig_num=1):
+        try:
+            getattr(self,name)
+        except Exception as e:
+            print(e)
+            return
         plt.figure(fig_num, figsize=(5, 5))
         plt.clf()
         plt.subplot(1, 1, 1)

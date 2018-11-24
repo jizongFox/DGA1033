@@ -5,7 +5,8 @@ from admm_research.utils import extract_from_big_dict
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 from admm_research.method import ModelMode
-import torch
+from tensorboardX import SummaryWriter
+import torch, os
 
 
 class Base(ABC):
@@ -43,8 +44,8 @@ class ADMM_Trainer(Base):
 
     @classmethod
     def setup_arch_flags(cls):
-        flags.DEFINE_integer('max_epoch', default=100, help='number of max_epoch')
-        flags.DEFINE_multi_integer('milestones', default=[50, 100, 150, 200], help='miletones for lr_decay')
+        flags.DEFINE_integer('max_epoch', default=200, help='number of max_epoch')
+        flags.DEFINE_multi_integer('milestones', default=[50, 100, 130, 160], help='miletones for lr_decay')
         flags.DEFINE_float('gamma', default=0.2, help='gamma for lr_decay')
         flags.DEFINE_string('device', default='cpu', help='cpu or cuda?')
         flags.DEFINE_integer('printfreq', default=5, help='how many output for an epoch')
@@ -65,6 +66,9 @@ class ADMM_Trainer(Base):
         self.admm.to(self.device)
         self.criterion.to(self.device)
         self.train_loader, self.val_loader = self._build_dataset(datasets, self.hparams)
+        self.writer_name = os.path.join('run', self.generate_current_time() + '_' + self.generate_random_str())
+        self.writer = SummaryWriter(self.writer_name)
+        self.save_hparams()
 
     def start_training(self):
         for epoch in range(self.hparams['max_epoch']):
@@ -118,3 +122,37 @@ class ADMM_Trainer(Base):
                                 batch_size=hparams['batch_size']
                                 )
         return train_loader, val_loader
+
+    @staticmethod
+    def generate_random_str(randomlength=16):
+        """
+        生成一个指定长度的随机字符串
+        """
+        import random
+        random_str = ''
+        base_str = 'ABCDEFGHIGKLMNOPQRSTUVWXYZabcdefghigklmnopqrstuvwxyz0123456789'
+        length = len(base_str) - 1
+        for i in range(randomlength):
+            random_str += base_str[random.randint(0, length)]
+        return random_str
+
+    @staticmethod
+    def generate_current_time():
+        from time import gmtime, strftime
+        ctime = strftime("%Y-%m-%d %H:%M:%S", gmtime())
+        return ctime
+
+    def save_hparams(self):
+        import pandas as pd
+        message = ''
+        message += '----------------- Options ---------------\n'
+        for k, v in sorted(self.hparams.items()):
+            comment = ''
+            message += '{:>25}: {:<30}{}\n'.format(str(k), str(v), comment)
+        message += '----------------- End -------------------'
+        print(message)
+        file_name = os.path.join(self.writer_name, 'opt.txt')
+        with open(file_name, 'wt') as opt_file:
+            opt_file.write(message)
+            opt_file.write('\n')
+        pd.Series(self.hparams).to_csv(os.path.join(self.writer_name,'opt.csv'))
