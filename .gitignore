@@ -5,3 +5,5 @@ checkpoints/*
 results/*
 .DS_Store
 run/
+zzz*.py
+archive

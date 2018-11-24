@@ -116,11 +116,11 @@ class AdmmBase(ABC):
     def evaluate(self, dataloader):
         b_dice_meter = AverageMeter()
         f_dice_meter = AverageMeter()
-        self.set_mode(ModelMode.EVAL)
+
         with torch.no_grad():
 
             for i, (image, mask, weak_mask, pathname) in enumerate(dataloader):
-                if weak_mask.sum() == 0 and mask.sum() != 0:
+                if weak_mask.sum() == 0 or mask.sum() == 0:
                     continue
                 image, mask, weak_mask = image.to(device), mask.to(device), weak_mask.to(device)
                 proba = F.softmax(self.torchnet(image), dim=1)
@@ -129,7 +129,6 @@ class AdmmBase(ABC):
                 b_dice_meter.update(b_iou, image.size(0))
                 f_dice_meter.update(f_iou, image.size(0))
 
-        self.set_mode(ModelMode.TRAIN)
         return b_dice_meter.avg, f_dice_meter.avg
 
     def to(self, device):

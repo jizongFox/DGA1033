@@ -1,1 +1,1 @@
-from .base import ADMM_Trainer
+from .trainer import ADMM_Trainer

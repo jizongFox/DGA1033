@@ -1,4 +1,4 @@
-from admm_research import LOGGER, flags, app
+from admm_research import LOGGER, flags, app,config_logger
 from admm_research.dataset import MedicalImageDataset, segment_transform, augment
 from admm_research.method import AdmmGCSize, get_method
 from admm_research.loss import get_loss_fn
@@ -13,6 +13,7 @@ torch.set_num_threads(1)
 
 def run(argv):
     del argv
+
 
     hparams = flags.FLAGS.flag_values_dict()
     # print(hparams)
