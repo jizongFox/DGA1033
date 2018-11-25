@@ -8,6 +8,16 @@ from .medicalDataLoader import MedicalImageDataset
 
 color_transform = Colorize()
 
+dataset_root = {}
+
+
+def _registre_data_root(name, root, alis=None):
+    if name in dataset_root.keys():
+        raise ('The {} has been taken in the dictionary.'.format(name))
+    dataset_root[name] = root
+    if alis is not None and alis not in dataset_root.keys():
+        dataset_root[alis] = root
+
 
 def segment_transform(size):
     img_transform = transforms.Compose([
@@ -18,7 +28,7 @@ def segment_transform(size):
         transforms.Resize(size),
         transforms.ToTensor()
     ])
-    return {'img': img_transform,
+    return {'Img': img_transform,
             'mask': mask_transform}
 
 
@@ -52,3 +62,14 @@ def augment(img, mask, weak_mask):
         weak_mask = weak_mask.crop((x_pos, y_pos, x_pos + W, y_pos + H))
 
     return img, mask, weak_mask
+
+
+_registre_data_root('ACDC_2D', 'admm_research/dataset/ACDC-2D-All', 'cardiac')
+_registre_data_root('PROSTATE', 'admm_research/dataset/PROSTATE', 'prostate')
+
+
+def get_dataset_root(dataname):
+    if dataname in dataset_root.keys():
+        return dataset_root[dataname]
+    else:
+        raise('There is no such dataname, given {}'.format(dataname))

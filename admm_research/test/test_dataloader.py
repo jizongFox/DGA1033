@@ -13,11 +13,11 @@ def test_dataloader():
     val_loader = DataLoader(val_dataset, batch_size=1, shuffle=False)
 
 
-    # for i, (img, gt, wgt,_) in enumerate(train_loader):
-    #     ToPILImage()(img[0]).show()
+    # for i, (Img, GT, wgt,_) in enumerate(train_loader):
+    #     ToPILImage()(Img[0]).show()
     #     if i ==5:
     #         train_loader.dataset.set_mode('eval')
-    #     ToPILImage()(img[0]).show()
+    #     ToPILImage()(Img[0]).show()
     #     if i ==10:
     #         break
 

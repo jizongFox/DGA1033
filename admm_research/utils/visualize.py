@@ -84,5 +84,7 @@ class Writter_tf(SummaryWriter):
         selected_imgs = [dataloader.dataset.imgs[indx] for indx in selected_indxs]
         dataloader_.dataset.imgs = selected_imgs
         for i, (img, gt, weak_gt, path) in enumerate(dataloader_):
+            if gt.sum() == 0 or weak_gt.sum() == 0:
+                continue
             img, gt, weak_gt = img.to(device), gt.to(device), weak_gt.to(device)
             self.customized_add_image(img, gt, weak_gt, os.path.join(dataset_name, os.path.basename(path[0])), epoch)

@@ -92,7 +92,7 @@ class AdmmBase(ABC):
 
     def show(self, name=None, fig_num=1):
         try:
-            getattr(self,name)
+            getattr(self, name)
         except Exception as e:
             print(e)
             return
@@ -169,7 +169,8 @@ class AdmmSize(AdmmBase):
         if self.individual_size_constraint:
             self.upbound = int((1.0 + self.eps) * self.img_size.item())
             self.lowbound = int((1.0 - self.eps) * self.img_size.item())
-            # LOGGER.debug('real size: {}, low bound: {}, up bound: {}'.format(self.img_size,self.lowbound,self.upbound))
+            LOGGER.debug(
+                'real size: {}, low bound: {}, up bound: {}'.format(self.img_size, self.lowbound, self.upbound))
 
     def update(self, img_gt_weakgt, criterion):
         self.forward_img(*img_gt_weakgt)
@@ -178,7 +179,7 @@ class AdmmSize(AdmmBase):
         self._update_v()
 
     def _update_s(self):
-        if self.weak_gt.sum() == 0:
+        if self.weak_gt.sum() == 0 or self.gt.sum() == 0:
             self.s = np.zeros(self.img.squeeze().shape)
             return
         a = 0.5 - (F.softmax(self.score, 1)[:, 1].cpu().data.numpy().squeeze() + self.v)
@@ -190,13 +191,14 @@ class AdmmSize(AdmmBase):
             self.s = ((a < 0) * 1.0).reshape(original_shape)
         elif useful_pixel_number <= self.lowbound:
             # print('too small')
-            self.s = ((a <= a_[self.lowbound]) * 1.0).reshape(original_shape)
+            self.s = ((a <= a_[self.lowbound+1]) * 1.0).reshape(original_shape)
         elif useful_pixel_number >= self.upbound:
             # print('too large')
-            self.s = ((a <= a_[self.upbound] * 1.0) * 1).reshape(original_shape)
+            self.s = ((a <= a_[self.upbound-1] * 1.0) * 1).reshape(original_shape)
         else:
             raise ('something wrong here.')
         assert self.s.shape.__len__() == 2
+        assert self.lowbound <= self.s.sum() <= self.upbound
 
     def _update_theta(self, criterion):
 

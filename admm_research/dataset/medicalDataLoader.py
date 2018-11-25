@@ -90,7 +90,7 @@ class MedicalImageDataset(Dataset):
         self.training = ModelMode.TRAIN
 
     def __len__(self):
-        return int(len(self.imgs)/5)
+        return int(len(self.imgs))
 
     def set_mode(self, mode):
         assert isinstance(mode, (str, ModelMode)), 'the type of mode should be str or ModelMode, given %s' % str(mode)
@@ -113,7 +113,7 @@ class MedicalImageDataset(Dataset):
             img, mask, mask_weak = self.augment(img, mask, mask_weak)
 
         self.transform = self.transform if self.transform is not None else default_transform
-        img = self.transform['img'](img)
+        img = self.transform['Img'](img)
         mask = self.transform['mask'](mask)
         mask = (mask >= 0.8).long()
         mask_weak = self.transform['mask'](mask_weak)

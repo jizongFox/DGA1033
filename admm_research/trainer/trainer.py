@@ -55,6 +55,8 @@ class ADMM_Trainer(Base):
         flags.DEFINE_integer('batch_size', default=1, help='how many output for an epoch')
         flags.DEFINE_boolean('vis_during_training', default=False, help='matplotlib plot image during training')
 
+
+
     def __init__(self, ADMM_method: AdmmGCSize, datasets: list, criterion, hparams: dict) -> None:
         super().__init__()
         self.admm = ADMM_method
