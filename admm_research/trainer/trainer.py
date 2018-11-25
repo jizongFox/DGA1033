@@ -37,6 +37,10 @@ class Base(ABC):
     def _main_loop(self, dataloader, epoch, mode):
         pass
 
+    @abstractmethod
+    def checkpoint(self, **kwargs):
+        pass
+
 
 class ADMM_Trainer(Base):
     lr_scheduler_hparam_keys = ['max_epoch', 'milestones', 'gamma']
@@ -54,8 +58,6 @@ class ADMM_Trainer(Base):
         flags.DEFINE_integer('num_workers', default=1, help='how many output for an epoch')
         flags.DEFINE_integer('batch_size', default=1, help='how many output for an epoch')
         flags.DEFINE_boolean('vis_during_training', default=False, help='matplotlib plot image during training')
-
-
 
     def __init__(self, ADMM_method: AdmmGCSize, datasets: list, criterion, hparams: dict) -> None:
         super().__init__()
@@ -93,6 +95,8 @@ class ADMM_Trainer(Base):
                 LOGGER.info('At epoch {}, val acc is {:3f}%, under EVAL mode'.format(epoch, f_dice * 100))
             if epoch >= self.hparams['stop_dilation_epoch']:
                 self.admm.is_dilation = False
+
+        self.checkpoint(f_dice, epoch)
         ## clean up
         self.writer.cleanup()
 
@@ -102,15 +106,16 @@ class ADMM_Trainer(Base):
         assert self.admm.torchnet.training == True
         assert dataloader.dataset.training == ModelMode.TRAIN
         for i, (img, gt, wgt, _) in tqdm(enumerate(dataloader)):
-            if wgt.sum() == 0 or gt.sum() == 0:
+            if wgt.sum() <= 0 or gt.sum() <= 0:
                 continue
 
             img, gt, wgt = img.to(self.device), gt.to(self.device), wgt.to(self.device)
             self.admm.reset(img)
             for j in range(self.hparams['num_admm_innerloop']):  #
-                self.admm.update((img, gt, wgt), self.criterion)
+                self.admm.update_1((img, gt, wgt))
                 if self.hparams['vis_during_training']:
                     self.visualize_during_Training()
+                self.admm.update_2(self.criterion)
 
         LOGGER.info('%s %d complete' % (mode.value, epoch))
 
@@ -181,3 +186,17 @@ class ADMM_Trainer(Base):
             self.admm.show('s', fig_num=3)
         except Exception as e:
             print(e)
+
+    def checkpoint(self, dice, epoch):
+        try:
+            getattr(self, 'best_dice')
+        except:
+            self.best_dice = -1
+
+        if dice >= self.best_dice:
+            self.best_dice = dice
+            dict = {}
+            dict['model'] = self.admm.save_dict
+            dict['epoch'] = epoch
+            dict['dice'] = dice
+            torch.save(dict, os.path.join(self.writer_name, 'best.pth'))

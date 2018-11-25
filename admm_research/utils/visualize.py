@@ -5,7 +5,7 @@ from visdom import Visdom
 import copy, os, shutil
 import matplotlib.pyplot as plt
 from admm_research.utils import dice_loss
-
+plt.switch_backend('agg')
 
 class Dashboard:
 
@@ -75,7 +75,7 @@ class Writter_tf(SummaryWriter):
         plt.axis('off')
         self.add_figure(path, fig, global_step=epoch)
 
-    def add_images(self, dataloader, epoch, device):
+    def add_images(self, dataloader, epoch, device='cpu'):
         dataset_name = dataloader.dataset.name
         np.random.seed(self.random_seed)
         dataloader_ = copy.deepcopy(dataloader)

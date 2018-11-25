@@ -46,7 +46,7 @@ class AdmmBase(ABC):
         """ Setup the arch_hparams """
         flags.DEFINE_float('weight_decay', default=0, help='decay of learning rate schedule')
         flags.DEFINE_float('lr', default=0.005, help='learning rate')
-        flags.DEFINE_boolean('amsgrad', default=True, help='amsgrad')
+        flags.DEFINE_boolean('amsgrad', default=False, help='amsgrad')
         flags.DEFINE_integer('optim_inner_loop_num', default=10, help='optim_inner_loop_num')
         flags.DEFINE_string('arch', default='enet', help='arch_name')
         flags.DEFINE_integer('num_classes', default=2, help='num of classes')
@@ -70,6 +70,10 @@ class AdmmBase(ABC):
         self.weak_gt = weak_gt
         self.img_size = torch.sum(gt)
         self.score = self.torchnet(img)
+
+    @property
+    def save_dict(self):
+        return self.torchnet.state_dict()
 
     @abstractmethod
     def update(self, **kwargs):
@@ -163,17 +167,25 @@ class AdmmSize(AdmmBase):
     def reset(self, img):
         self.s = np.zeros(img.squeeze().shape)
         self.v = np.zeros(img.squeeze().shape)
+        self.initilize = False
+
+    def initialize_dummy_variables(self, score):
+        self.s = pred2segmentation(score).cpu().data.numpy().squeeze()  # b, w, h
+        self.v = np.zeros(list(self.s.shape))  # b w h
+        self.initilize = True
 
     def forward_img(self, img, gt, weak_gt):
         super().forward_img(img, gt, weak_gt)
         if self.individual_size_constraint:
             self.upbound = int((1.0 + self.eps) * self.img_size.item())
             self.lowbound = int((1.0 - self.eps) * self.img_size.item())
-            LOGGER.debug(
-                'real size: {}, low bound: {}, up bound: {}'.format(self.img_size, self.lowbound, self.upbound))
+            # LOGGER.debug(
+            #     'real size: {}, low bound: {}, up bound: {}'.format(self.img_size, self.lowbound, self.upbound))
 
     def update(self, img_gt_weakgt, criterion):
         self.forward_img(*img_gt_weakgt)
+        if self.initilize == False:
+            self.initialize_dummy_variables(self.score)
         self._update_s()
         self._update_theta(criterion)
         self._update_v()
@@ -182,7 +194,7 @@ class AdmmSize(AdmmBase):
         if self.weak_gt.sum() == 0 or self.gt.sum() == 0:
             self.s = np.zeros(self.img.squeeze().shape)
             return
-        a = 0.5 - (F.softmax(self.score, 1)[:, 1].cpu().data.numpy().squeeze() + self.v)
+        a = 0.5 - (F.softmax(self.score/10, 1)[:, 1].cpu().data.numpy().squeeze() + self.v)
         original_shape = a.shape
         a_ = np.sort(a.ravel())
         useful_pixel_number = (a < 0).sum()
@@ -191,10 +203,10 @@ class AdmmSize(AdmmBase):
             self.s = ((a < 0) * 1.0).reshape(original_shape)
         elif useful_pixel_number <= self.lowbound:
             # print('too small')
-            self.s = ((a <= a_[self.lowbound+1]) * 1.0).reshape(original_shape)
+            self.s = ((a <= a_[self.lowbound + 1]) * 1.0).reshape(original_shape)
         elif useful_pixel_number >= self.upbound:
             # print('too large')
-            self.s = ((a <= a_[self.upbound-1] * 1.0) * 1).reshape(original_shape)
+            self.s = ((a <= a_[self.upbound - 1] * 1.0) * 1).reshape(original_shape)
         else:
             raise ('something wrong here.')
         assert self.s.shape.__len__() == 2
@@ -250,20 +262,39 @@ class AdmmGCSize(AdmmSize):
     def reset(self, img):
         super().reset(img)
         self.gamma = np.zeros(img.squeeze().shape)
-        self.s = np.zeros(img.squeeze().shape)
         self.u = np.zeros(img.squeeze().shape)
-        self.v = np.zeros(img.squeeze().shape)
 
     def update(self, img_gt_weakgt, criterion):
         self.forward_img(*img_gt_weakgt)
+        if self.initilize == False:
+            self.initialize_dummy_variables(self.score)
         self._update_s()
         self._update_gamma()
         self._update_theta(criterion)
         self._update_u()
         self._update_v()
 
+    def update_1(self, img_gt_weakgt):
+        self.forward_img(*img_gt_weakgt)
+        if self.initilize == False:
+            self.initialize_dummy_variables(self.score)
+        self._update_s()
+        self._update_gamma()
+
+    def update_2(self, criterion):
+        self._update_theta(criterion)
+        self._update_u()
+        self._update_v()
+
+    def initialize_dummy_variables(self, score):
+        self.s = pred2segmentation(score).cpu().data.numpy().squeeze()  # b, w, h
+        self.gamma = self.s
+        self.initilize = True
+
     def _update_theta(self, criterion):
         for i in range(self.optim_inner_loop_num):
+            self.torchnet.zero_grad()
+
             CE_loss = criterion(self.score, self.weak_gt.squeeze(1).long())
             unlabled_loss = self.p_v / 2 * (
                     F.softmax(self.score, dim=1)[:, 1] + torch.from_numpy(-self.s + self.v).float().to(
@@ -281,7 +312,7 @@ class AdmmGCSize(AdmmSize):
             self.forward_img(self.img, self.gt, self.weak_gt)
 
     def _update_gamma(self):
-        if self.weak_gt.sum() == 0:
+        if self.weak_gt.sum() == 0 or self.gt.sum() == 0:
             self.gamma = np.zeros(self.img.squeeze().shape)
             return
         unary_term_gamma_1 = np.multiply(
