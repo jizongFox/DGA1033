@@ -16,7 +16,7 @@ def run(argv):
     del argv
 
     hparams = flags.FLAGS.flag_values_dict()
-    # print(hparams)
+
     root_dir = get_dataset_root(hparams['dataroot'])
 
     train_dataset = MedicalImageDataset(root_dir, 'train', transform=segment_transform((200, 200)), augment=None)

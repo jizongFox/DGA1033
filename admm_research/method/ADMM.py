@@ -51,11 +51,13 @@ class AdmmBase(ABC):
         flags.DEFINE_string('arch', default='enet', help='arch_name')
         flags.DEFINE_integer('num_classes', default=2, help='num of classes')
         flags.DEFINE_string('method', default='admm_gc_size', help='arch_name')
+        flags.DEFINE_boolean('ignore_negative', default=True, help='ignore negative examples in the training')
 
     def __init__(self, torchnet: nn.Module, hparams: dict) -> None:
         super().__init__()
-        self.p_u = 1
-        self.p_v = 1
+        self.hparams = hparams
+        self.p_u = 10
+        self.p_v = 10
         optim_hparams = extract_from_big_dict(hparams, AdmmBase.optim_hparam_keys)
         self.torchnet = torchnet
         self.optim_inner_loop_num = optim_hparams['optim_inner_loop_num']
@@ -124,8 +126,9 @@ class AdmmBase(ABC):
         with torch.no_grad():
 
             for i, (image, mask, weak_mask, pathname) in enumerate(dataloader):
-                if weak_mask.sum() == 0 or mask.sum() == 0:
-                    continue
+                if self.hparams['ignore_negative']:
+                    if weak_mask.sum() == 0 or mask.sum() == 0:
+                        continue
                 image, mask, weak_mask = image.to(device), mask.to(device), weak_mask.to(device)
                 proba = F.softmax(self.torchnet(image), dim=1)
                 predicted_mask = proba.max(1)[1]
@@ -194,7 +197,7 @@ class AdmmSize(AdmmBase):
         if self.weak_gt.sum() == 0 or self.gt.sum() == 0:
             self.s = np.zeros(self.img.squeeze().shape)
             return
-        a = 0.5 - (F.softmax(self.score/10, 1)[:, 1].cpu().data.numpy().squeeze() + self.v)
+        a = 0.5 - (F.softmax(self.score / 10, 1)[:, 1].cpu().data.numpy().squeeze() + self.v)
         original_shape = a.shape
         a_ = np.sort(a.ravel())
         useful_pixel_number = (a < 0).sum()
@@ -210,7 +213,7 @@ class AdmmSize(AdmmBase):
         else:
             raise ('something wrong here.')
         assert self.s.shape.__len__() == 2
-        assert self.lowbound <= self.s.sum() <= self.upbound
+        # assert self.lowbound <= self.s.sum() <= self.upbound
 
     def _update_theta(self, criterion):
 

@@ -50,8 +50,8 @@ class ADMM_Trainer(Base):
     @classmethod
     def setup_arch_flags(cls):
         flags.DEFINE_integer('max_epoch', default=200, help='number of max_epoch')
-        flags.DEFINE_multi_integer('milestones', default=[30, 50, 70, 90, 120, 140, 160], help='miletones for lr_decay')
-        flags.DEFINE_float('gamma', default=0.5, help='gamma for lr_decay')
+        flags.DEFINE_multi_integer('milestones', default=[20, 40, 60, 80, 100, 120, 140, 160], help='miletones for lr_decay')
+        flags.DEFINE_float('gamma', default=0.95, help='gamma for lr_decay')
         flags.DEFINE_string('device', default='cpu', help='cpu or cuda?')
         flags.DEFINE_integer('printfreq', default=5, help='how many output for an epoch')
         flags.DEFINE_integer('num_admm_innerloop', default=2, help='how many output for an epoch')
@@ -96,7 +96,7 @@ class ADMM_Trainer(Base):
             if epoch >= self.hparams['stop_dilation_epoch']:
                 self.admm.is_dilation = False
 
-        self.checkpoint(f_dice, epoch)
+            self.checkpoint(f_dice, epoch)
         ## clean up
         self.writer.cleanup()
 
@@ -105,9 +105,11 @@ class ADMM_Trainer(Base):
         self.admm.set_mode(mode)
         assert self.admm.torchnet.training == True
         assert dataloader.dataset.training == ModelMode.TRAIN
+
         for i, (img, gt, wgt, _) in tqdm(enumerate(dataloader)):
-            if wgt.sum() <= 0 or gt.sum() <= 0:
-                continue
+            if self.hparams['ignore_negative']:
+                if wgt.sum() <= 0 or gt.sum() <= 0:
+                    continue
 
             img, gt, wgt = img.to(self.device), gt.to(self.device), wgt.to(self.device)
             self.admm.reset(img)
@@ -120,10 +122,6 @@ class ADMM_Trainer(Base):
         LOGGER.info('%s %d complete' % (mode.value, epoch))
 
     def _evaluate(self, dataloader, mode=ModelMode.EVAL):
-        self.admm.set_mode(mode)
-        dataloader.dataset.set_mode(mode)
-        assert self.admm.torchnet.training == False
-        assert dataloader.dataset.training == ModelMode.EVAL
 
         [_, fdice] = self.admm.evaluate(dataloader)
         return fdice

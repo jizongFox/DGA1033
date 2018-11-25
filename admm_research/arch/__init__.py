@@ -3,6 +3,7 @@
 from .network import FCN8, FCN16, FCN32, UNet, SegNet, PSPNet
 from .enet import Enet
 from .joseent import ENet as JEnet
+from .joseent import CorstemNet as CNet
 
 """
 Package
@@ -37,6 +38,7 @@ _register_arch('unet', UNet)
 _register_arch('segnet', SegNet)
 _register_arch('enet', Enet)
 _register_arch('jenet', JEnet)
+_register_arch('cnet', CNet)
 
 """
 Public interface

@@ -54,7 +54,6 @@ class constraint:
             self.p_p = 10
             self.p_n = 10
 
-
         else:
             raise NotImplementedError
 
