@@ -1,4 +1,5 @@
 from .ADMM import AdmmSize, ModelMode, AdmmGCSize
+from .fullysupervised import FullySupervisedWrapper
 
 """
 Package
@@ -28,6 +29,7 @@ def _register_arch(arch, callable, alias=None):
 # Adding architecture (new architecture goes here...)
 _register_arch('admm_size', AdmmSize)
 _register_arch('admm_gc_size', AdmmGCSize)
+_register_arch('fullysupervised', FullySupervisedWrapper)
 
 """
 Public interface
