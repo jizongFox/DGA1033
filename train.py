@@ -5,12 +5,13 @@ from admm_research.loss import get_loss_fn
 from admm_research.arch import get_arch
 from admm_research.trainer import ADMM_Trainer
 from admm_research.utils import extract_from_big_dict
-import torch
+import torch, numpy as np
 import warnings
 
 warnings.filterwarnings('ignore')
 torch.set_num_threads(1)
-
+np.random.seed(1)
+torch.random.manual_seed(1)
 
 def run(argv):
     del argv
@@ -29,7 +30,6 @@ def run(argv):
     criterion = get_loss_fn('partial_ce')
     trainer = ADMM_Trainer(admm, [train_dataset, val_dataset], criterion, hparams)
     trainer.start_training()
-
 
 if __name__ == '__main__':
     flags.DEFINE_string('dataroot', default='cardiac', help='the name of the dataset')

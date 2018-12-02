@@ -5,7 +5,7 @@ from admm_research.utils import extract_from_big_dict, Writter_tf
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 from admm_research.method import ModelMode
-import torch, os, shutil
+import torch, os, shutil, pandas as pd
 
 
 class Base(ABC):
@@ -50,7 +50,8 @@ class ADMM_Trainer(Base):
     @classmethod
     def setup_arch_flags(cls):
         flags.DEFINE_integer('max_epoch', default=200, help='number of max_epoch')
-        flags.DEFINE_multi_integer('milestones', default=[20, 40, 60, 80, 100, 120, 140, 160], help='miletones for lr_decay')
+        flags.DEFINE_multi_integer('milestones', default=[20, 40, 60, 80, 100, 120, 140, 160],
+                                   help='miletones for lr_decay')
         flags.DEFINE_float('gamma', default=0.95, help='gamma for lr_decay')
         flags.DEFINE_string('device', default='cpu', help='cpu or cuda?')
         flags.DEFINE_integer('printfreq', default=5, help='how many output for an epoch')
@@ -198,3 +199,6 @@ class ADMM_Trainer(Base):
             dict['epoch'] = epoch
             dict['dice'] = dice
             torch.save(dict, os.path.join(self.writer_name, 'best.pth'))
+            csvlog = pd.Series.from_csv(os.path.join(self.writer_name, 'opt.csv'))
+            csvlog['best_dice'] = self.best_dice
+            csvlog.to_csv(os.path.join(self.writer_name, 'opt.csv'))

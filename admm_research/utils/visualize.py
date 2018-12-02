@@ -5,7 +5,11 @@ from visdom import Visdom
 import copy, os, shutil
 import matplotlib.pyplot as plt
 from admm_research.utils import dice_loss
-# plt.switch_backend('agg')
+import platform
+
+if platform.system() == 'Linux':
+    plt.switch_backend('agg')
+
 
 class Dashboard:
 
