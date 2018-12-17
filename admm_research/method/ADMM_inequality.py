@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import warnings
 import torch
 import torch.nn.functional as F
-from utils.criterion import CrossEntropyLoss2d
+from admm_research.loss import CrossEntropyLoss2d
 import maxflow, cv2
 from admm_research.method import ModelMode
 from admm_research.utils import AverageMeter, dice_loss
@@ -40,7 +40,7 @@ class constraint:
 
     def __set_default_parametes(self):
         if self.name == 'reg':
-            self.eps = 0.25
+            self.eps = 0.5
             self.p_p = 10
             self.p_n = 10
             self.lamda = 5
@@ -49,7 +49,7 @@ class constraint:
             self.dilation_level = 10
 
         elif self.name == 'size':
-            self.eps = 0.25
+            self.eps = 0.5
             self.eps_size = 0.1
             self.p_p = 10
             self.p_n = 10
@@ -134,8 +134,8 @@ class constraint:
                               -(self.S_proba - self.Y - 0.5 + self.eps + self.U_p))
 
     def update_multipliers(self):
-        self.U_p = self.U_p + (self.S_proba - (self.Y + 0.5 - self.eps - self.s_n)) * 1
-        self.U_n = self.U_n + (self.S_proba - (self.Y - 0.5 + self.eps + self.s_p)) * 1
+        self.U_p = self.U_p + (self.S_proba - (self.Y + 0.5 - self.eps - self.s_n)) * 0.1
+        self.U_n = self.U_n + (self.S_proba - (self.Y - 0.5 + self.eps + self.s_p)) * 0.1
 
     def return_L2_loss(self):
         loss = self.p_p * (F.softmax(self.S, 1)[:, 1].squeeze() - torch.Tensor(
@@ -197,6 +197,42 @@ class constraint:
     def heatmap2segmentation(self, heatmap):
         return heatmap.max(1)[1]
 
+    def show_S(self):
+        plt.figure(1)
+        plt.imshow(self.S_proba)
+        plt.title('S')
+        plt.show(block=False)
+
+    def show_Y(self):
+        plt.figure(2)
+        plt.imshow(self.Y)
+        plt.title('y')
+        plt.show(block=False)
+
+    def show(self, name=None, fig_num=1):
+        try:
+            getattr(self, name)
+        except Exception as e:
+            print(e)
+            return
+        plt.figure(fig_num, figsize=(5, 5))
+        plt.clf()
+        plt.subplot(1, 1, 1)
+        plt.imshow(self.image[0].cpu().data.numpy().squeeze(), cmap='gray')
+
+        plt.contour(self.weak_mask.squeeze(), level=[0], colors="yellow", alpha=0.2, linewidth=0.001,
+                    label='GT')
+        plt.contour(self.full_mask.squeeze(), level=[0], colors="yellow", alpha=0.2, linewidth=0.001,
+                    label='GT')
+        plt.contour(self.S.max(1)[1].squeeze().cpu().data.numpy(), level=[0],
+                    colors="green", alpha=0.2, linewidth=0.001, label='CNN')
+        if name is not None:
+            plt.contour(getattr(self, name), level=[0], colors="red", alpha=0.2, linewidth=0.001, label=name)
+
+        plt.title(name)
+        plt.show(block=False)
+        plt.pause(0.01)
+
 
 class ADMM_inequality():
     '''
@@ -243,7 +279,7 @@ class ADMM():
     def __init__(self, CNN) -> None:
         super().__init__()
         self.cnn = CNN
-        self.innerloop_num = 5
+        self.innerloop_num = 50
         self.partialCE_criterion = CrossEntropyLoss2d(weight=torch.Tensor([0, 1]))
         self.optim = torch.optim.Adam(self.cnn.parameters(), lr=1e-3)
 
@@ -267,18 +303,18 @@ class ADMM():
                 reg_loss = self.constraint.return_L2_loss()
                 size_loss = self.constranit2.return_L2_loss()
                 ce_loss = self.partialCE_criterion(self.S, weak_mask.squeeze(1).long())
-                loss = ce_loss / 10 + reg_loss + size_loss
+                loss = ce_loss  + size_loss +reg_loss
                 loss.backward()
                 print('CE:', ce_loss.item(), 'Reg_loss:', reg_loss.item(), 'Size_loss:', size_loss.item())
 
                 self.optim.step()
 
-            self.constraint.show_S()
+            self.constraint.show('S_proba',1)
             # self.constraint.show_Y()
             # self.constraint.show_U_p()
             # self.constraint.show_U_n()
-            self.constraint.show_gamma()
-            self.constranit2.show_gamma()
+            self.constraint.show('Y',2)
+            self.constranit2.show('Y',3)
             plt.pause(0.001)
 
 

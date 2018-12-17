@@ -45,7 +45,7 @@ class AdmmBase(ABC):
     def setup_arch_flags(cls):
         """ Setup the arch_hparams """
         flags.DEFINE_float('weight_decay', default=0, help='decay of learning rate schedule')
-        flags.DEFINE_float('lr', default=0.005, help='learning rate')
+        flags.DEFINE_float('lr', default=0.001, help='learning rate')
         flags.DEFINE_boolean('amsgrad', default=False, help='amsgrad')
         flags.DEFINE_integer('optim_inner_loop_num', default=10, help='optim_inner_loop_num')
         flags.DEFINE_string('arch', default='enet', help='arch_name')
@@ -167,7 +167,7 @@ class AdmmSize(AdmmBase):
             self.upbound = size_hparams['global_upbound']
             self.lowbound = size_hparams['global_lowbound']
 
-    def reset(self, img):
+    def reset(self, img, gt, wg):
         self.s = np.zeros(img.squeeze().shape)
         self.v = np.zeros(img.squeeze().shape)
         self.initilize = False
@@ -182,8 +182,8 @@ class AdmmSize(AdmmBase):
         if self.individual_size_constraint:
             self.upbound = int((1.0 + self.eps) * self.img_size.item())
             self.lowbound = int((1.0 - self.eps) * self.img_size.item())
-            # LOGGER.debug(
-            #     'real size: {}, low bound: {}, up bound: {}'.format(self.img_size, self.lowbound, self.upbound))
+            LOGGER.debug(
+                'real size: {}, low bound: {}, up bound: {}'.format(self.img_size, self.lowbound, self.upbound))
 
     def update(self, img_gt_weakgt, criterion):
         self.forward_img(*img_gt_weakgt)
@@ -193,11 +193,21 @@ class AdmmSize(AdmmBase):
         self._update_theta(criterion)
         self._update_v()
 
+    def update_1(self, img_gt_weakgt):
+        self.forward_img(*img_gt_weakgt)
+        if self.initilize == False:
+            self.initialize_dummy_variables(self.score)
+        self._update_s()
+
+    def update_2(self, criterion):
+        self._update_theta(criterion)
+        self._update_v()
+
     def _update_s(self):
         if self.weak_gt.sum() == 0 or self.gt.sum() == 0:
             self.s = np.zeros(self.img.squeeze().shape)
             return
-        a = 0.5 - (F.softmax(self.score / 10, 1)[:, 1].cpu().data.numpy().squeeze() + self.v)
+        a = 0.5 - (F.softmax(self.score, 1)[:, 1].cpu().data.numpy().squeeze() + self.v)
         original_shape = a.shape
         a_ = np.sort(a.ravel())
         useful_pixel_number = (a < 0).sum()
@@ -262,8 +272,8 @@ class AdmmGCSize(AdmmSize):
             setattr(self, d, v)
         self.is_dilation = True
 
-    def reset(self, img):
-        super().reset(img)
+    def reset(self, img, gt, wg):
+        super().reset(img, gt, wg)
         self.gamma = np.zeros(img.squeeze().shape)
         self.u = np.zeros(img.squeeze().shape)
 

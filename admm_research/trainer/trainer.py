@@ -112,7 +112,7 @@ class ADMM_Trainer(Base):
                     continue
 
             img, gt, wgt = img.to(self.device), gt.to(self.device), wgt.to(self.device)
-            self.admm.reset(img)
+            self.admm.reset(img,gt,wgt)
             for j in range(self.hparams['num_admm_innerloop']):  #
                 self.admm.update_1((img, gt, wgt))
                 if self.hparams['vis_during_training']:
@@ -184,6 +184,11 @@ class ADMM_Trainer(Base):
             self.admm.show('s', fig_num=3)
         except Exception as e:
             print(e)
+        try:
+            self.admm.show('Y', fig_num=3)
+        except Exception as e:
+            print(e)
+
 
     def checkpoint(self, dice, epoch):
         try:

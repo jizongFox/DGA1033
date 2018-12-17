@@ -1,6 +1,6 @@
 from admm_research import LOGGER, flags, app, config_logger
 from admm_research.dataset import MedicalImageDataset, segment_transform, augment, get_dataset_root
-from admm_research.method import AdmmGCSize, get_method
+from admm_research.method import get_method, get_method_class, AdmmSize, AdmmGCSize, ADMM_size_inequality
 from admm_research.loss import get_loss_fn
 from admm_research.arch import get_arch
 from admm_research.trainer import ADMM_Trainer
@@ -32,7 +32,9 @@ def run(argv):
 
 
 if __name__ == '__main__':
+    torch.manual_seed(41)
     flags.DEFINE_string('dataroot', default='cardiac', help='the name of the dataset')
-    AdmmGCSize.setup_arch_flags()
+    # AdmmSize.setup_arch_flags()
+    ADMM_size_inequality.setup_arch_flags()
     ADMM_Trainer.setup_arch_flags()
     app.run(run)
