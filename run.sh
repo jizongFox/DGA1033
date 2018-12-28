@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
-bash ./run_compare_negative.sh &
-bash ./run_cardiac_vs_eps.sh &
-bash ./run_prostate_vs_eps.sh
+fullysupervised
+weakly_supervised (2dataset)
+weakly_supervisedwith_inequaility (2dataset)(diffferent eps)
+
+show images
+

@@ -53,12 +53,12 @@ class Base_constraint(ABC):
                               (self.S_proba - self.Y + 0.5 - self.eps + self.U_n))
         self.s_n = np.maximum(np.zeros(self.Y.shape),
                               -(self.S_proba - self.Y - 0.5 + self.eps + self.U_p))
-        assert self.s_p.min()>=0
-        assert self.s_n.min()>=0
+        assert self.s_p.min() >= 0
+        assert self.s_n.min() >= 0
 
     def update_multipliers(self):
-        self.U_p = self.U_p + (self.S_proba - (self.Y + 0.5 - self.eps - self.s_n)) * 0.1
-        self.U_n = self.U_n + (self.S_proba - (self.Y - 0.5 + self.eps + self.s_p)) * 0.1
+        self.U_p = self.U_p + (self.S_proba - (self.Y + 0.5 - self.eps - self.s_n)) * 1.0
+        self.U_n = self.U_n + (self.S_proba - (self.Y - 0.5 + self.eps + self.s_p)) * 1.0
 
     def return_L2_loss(self):
         loss = self.p_p * (F.softmax(self.S, 1)[:, 1].squeeze() - torch.Tensor(
@@ -82,11 +82,10 @@ class Base_constraint(ABC):
                     label='GT')
         plt.contour(self.gt.squeeze().cpu().data.numpy(), level=[0], colors="yellow", alpha=0.2, linewidth=0.001,
                     label='GT')
-        plt.contour(self.S.max(1)[1].squeeze().cpu().data.numpy(), level=[0,0,5,1],
+        plt.contour(self.S.max(1)[1].squeeze().cpu().data.numpy(), level=[0, 0, 5, 1],
                     colors="green", alpha=0.2, linewidth=0.001, label='CNN')
         if name is not None:
             plt.contour(getattr(self, name), level=[0], colors="red", alpha=0.2, linewidth=0.001, label=name)
-
 
         plt.title(name)
         plt.show(block=False)
@@ -104,8 +103,9 @@ class RegConstraint(Base_constraint):
         flags.DEFINE_float('reg_sigma', default=0.02, help='smoothness term for pairwise term')
         flags.DEFINE_float('reg_dilation_level', default=10, help='dilation for the weak mask')
 
-    def __init__(self, example_img: torch.FloatTensor, hparam: dict) -> None:
-        super().__init__(example_img)
+    def __init__(self, hparam: dict) -> None:
+        super().__init__()
+        hparam = extract_from_big_dict(hparam, self.reg_hpara_keys)
         self.name = 'reg'
         assert isinstance(hparam, dict)
         assert hparam.keys() in self.reg_hpara_keys
@@ -191,7 +191,7 @@ class SizeConstraint(Base_constraint):
             self.Y = ((a <= a_[self.lowbound]) * 1).reshape(original_shape)
         if useful_pixel_number > self.upbound:
             self.Y = ((a <= a_[self.upbound]) * 1).reshape(original_shape)
-        print('Y:size:',self.Y.sum())
+        print('Y:size:', self.Y.sum())
 
 
 class ADMM_size_inequality(AdmmBase):
@@ -216,16 +216,16 @@ class ADMM_size_inequality(AdmmBase):
 
     def update(self, img_gt_weakgt, criterion):
         img, gt, weak = img_gt_weakgt
-        self.size_constrain.reset(img, gt, weak)
-        self.size_constrain.update(self.torchnet(img))  # update Y based on S
+        # self.size_constrain.reset(img, gt, weak)
+        self.size_constrain.update(self.torchnet(img))  # update Y based on S and slack variables
         self._update_theta(criterion)
 
     def update_1(self, img_gt_weakgt):
         img, gt, weak = img_gt_weakgt
-        self.size_constrain.update(self.torchnet(img))  # update Y based on S
+        self.size_constrain.update(self.torchnet(img))  # update Y based on S and slack variables
 
     def update_2(self, criterion):
-        self._update_theta(criterion)
+        self._update_theta(criterion)  ## update Networks
 
     def reset(self, img, gt=None, weak=None):
         self.img = img
@@ -250,7 +250,7 @@ class ADMM_size_inequality(AdmmBase):
             constraint_loss = self.size_constrain.return_L2_loss()  # return L2 loss based on current S and Y
 
             loss = constraint_loss + CE_loss
-            print('loss: CEloss:{},Constraintloss:{}'.format(CE_loss.item(),constraint_loss.item()))
+            print('loss: CEloss:{},Constraintloss:{}'.format(CE_loss.item(), constraint_loss.item()))
             self.optim.zero_grad()
             loss.backward()
             self.optim.step()

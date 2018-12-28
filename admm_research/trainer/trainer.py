@@ -6,10 +6,11 @@ from tqdm import tqdm
 from torch.utils.data import DataLoader
 from admm_research.method import ModelMode
 import torch, os, shutil
+from admm_research.dataset import PatientSampler
 
 
 class Base(ABC):
-    trainer_hparam_keys = []
+    trainer_hparam_keys = ['save_dir']
     src = './runs'
     des = './archive'
 
@@ -23,7 +24,7 @@ class Base(ABC):
     @abstractmethod
     def setup_arch_flags(cls):
         """ Setup the arch_hparams """
-        pass
+        flags.DEFINE_string('save_dir', default='None', help='saved_dir')
 
     @abstractmethod
     def start_training(self):
@@ -49,8 +50,10 @@ class ADMM_Trainer(Base):
 
     @classmethod
     def setup_arch_flags(cls):
+        super().setup_arch_flags()
         flags.DEFINE_integer('max_epoch', default=200, help='number of max_epoch')
-        flags.DEFINE_multi_integer('milestones', default=[20, 40, 60, 80, 100, 120, 140, 160], help='miletones for lr_decay')
+        flags.DEFINE_multi_integer('milestones', default=[20, 40, 60, 80, 100, 120, 140, 160],
+                                   help='miletones for lr_decay')
         flags.DEFINE_float('gamma', default=0.95, help='gamma for lr_decay')
         flags.DEFINE_string('device', default='cpu', help='cpu or cuda?')
         flags.DEFINE_integer('printfreq', default=5, help='how many output for an epoch')
@@ -72,8 +75,11 @@ class ADMM_Trainer(Base):
         self.admm.to(self.device)
         self.criterion.to(self.device)
         self.train_loader, self.val_loader = self._build_dataset(datasets, self.hparams)
-        self.writer_name = os.path.join(ADMM_Trainer.src,
-                                        self.generate_current_time() + '_' + self.generate_random_str())
+        if hparams['save_dir'] != 'None':
+            self.writer_name = os.path.join(ADMM_Trainer.src, hparams['save_dir'])
+        else:
+            self.writer_name = os.path.join(ADMM_Trainer.src,
+                                            self.generate_current_time() + '_' + self.generate_random_str())
         self.writer = Writter_tf(self.writer_name, self.admm.torchnet, num_img=30)
         config_logger(self.writer_name)
         self.save_hparams()
@@ -84,17 +90,23 @@ class ADMM_Trainer(Base):
             self.lr_scheduler.step()
             self._main_loop(self.train_loader, epoch)
             with torch.no_grad():
-                f_dice = self._evaluate(self.train_loader)
-                self.writer.add_scalar('train/dice', f_dice, epoch)
+                f_dice, thr_dice = self._evaluate(self.train_loader, mode='2Ddice')
+                self.writer.add_scalar('train/2Ddice', f_dice, epoch)
                 self.writer.add_images(self.train_loader, epoch, device=self.device)
-                LOGGER.info('At epoch {}, train acc is {:3f}%, under EVAL mode'.format(epoch, f_dice * 100))
+                LOGGER.info('At epoch {}, 2d train dice is {:3f}%, under EVAL mode'.format(epoch, f_dice * 100))
+                LOGGER.info('At epoch {}, 3d train dice is {:3f}%, under EVAL mode'.format(epoch, thr_dice * 100))
 
-                f_dice = self._evaluate(self.val_loader)
-                self.writer.add_scalar('val/dice', f_dice, epoch)
+                f_dice, thr_dice = self._evaluate(self.val_loader, mode='3Ddice')
+                self.writer.add_scalar('val/2Ddice', f_dice, epoch)
+                self.writer.add_scalar('val/3Ddice', thr_dice, epoch)
                 self.writer.add_images(self.val_loader, epoch, device=self.device)
-                LOGGER.info('At epoch {}, val acc is {:3f}%, under EVAL mode'.format(epoch, f_dice * 100))
-            if epoch >= self.hparams['stop_dilation_epoch']:
-                self.admm.is_dilation = False
+                LOGGER.info('At epoch {}, 2d val dice is {:3f}%, under EVAL mode'.format(epoch, f_dice * 100))
+                LOGGER.info('At epoch {}, 3d val dice is {:3f}%, under EVAL mode'.format(epoch, thr_dice * 100))
+            try:
+                if epoch >= self.hparams['stop_dilation_epoch']:
+                    self.admm.is_dilation = False
+            except:
+                continue
 
             self.checkpoint(f_dice, epoch)
         ## clean up
@@ -112,7 +124,7 @@ class ADMM_Trainer(Base):
                     continue
 
             img, gt, wgt = img.to(self.device), gt.to(self.device), wgt.to(self.device)
-            self.admm.reset(img,gt,wgt)
+            self.admm.reset(img, gt, wgt)
             for j in range(self.hparams['num_admm_innerloop']):  #
                 self.admm.update_1((img, gt, wgt))
                 if self.hparams['vis_during_training']:
@@ -123,12 +135,19 @@ class ADMM_Trainer(Base):
 
     def _evaluate(self, dataloader, mode=ModelMode.EVAL):
 
-        [_, fdice] = self.admm.evaluate(dataloader)
-        return fdice
+        [_, fdice, threeD_dice] = self.admm.evaluate(dataloader, mode)
+        return fdice, threeD_dice
 
     @staticmethod
     def _build_dataset(datasets, hparams):
         train_set, val_set = datasets
+
+        if val_set.root_dir.find('ACDC') > 0:
+            val_sampler = PatientSampler(val_set, "(patient\d+_\d+)_\d+", shuffle=False)
+        else:
+            val_sampler = PatientSampler(val_set, "(Case\d+_\d+)_\d+", shuffle=False)
+        val_batch_size = 1
+
         train_loader = DataLoader(train_set,
                                   num_workers=hparams['num_workers'],
                                   shuffle=True,
@@ -136,8 +155,8 @@ class ADMM_Trainer(Base):
                                   )
         val_loader = DataLoader(val_set,
                                 num_workers=hparams['num_workers'],
-                                shuffle=False,
-                                batch_size=hparams['batch_size']
+                                batch_sampler=val_sampler,
+                                batch_size=val_batch_size
                                 )
         return train_loader, val_loader
 
@@ -179,16 +198,18 @@ class ADMM_Trainer(Base):
         try:
             self.admm.show('gamma', fig_num=2)
         except Exception as e:
-            print(e)
+            # print(e)
+            pass
         try:
             self.admm.show('s', fig_num=3)
         except Exception as e:
-            print(e)
+            # print(e)
+            pass
         try:
             self.admm.show('Y', fig_num=3)
         except Exception as e:
-            print(e)
-
+            # print(e)
+            pass
 
     def checkpoint(self, dice, epoch):
         try:

@@ -12,7 +12,7 @@ class FullySupervisedWrapper(AdmmBase):
         super().__init__(torchnet, hparams)
         self.criterion = CrossEntropyLoss2d()
 
-    def reset(self, image):
+    def reset(self, img, gt, weak):
         pass
 
     def update(self, **kwargs):

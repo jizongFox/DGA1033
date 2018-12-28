@@ -10,7 +10,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from admm_research import flags
-from admm_research.utils import AverageMeter, dice_loss, pred2segmentation, extract_from_big_dict
+from admm_research.utils import AverageMeter, dice_loss, pred2segmentation, extract_from_big_dict, dice_batch, \
+    probs2one_hot, class2one_hot
 from admm_research import LOGGER
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -100,7 +101,7 @@ class AdmmBase(ABC):
         try:
             getattr(self, name)
         except Exception as e:
-            print(e)
+            # print(e)
             return
         plt.figure(fig_num, figsize=(5, 5))
         plt.clf()
@@ -119,9 +120,10 @@ class AdmmBase(ABC):
         plt.show(block=False)
         plt.pause(0.01)
 
-    def evaluate(self, dataloader):
+    def evaluate(self, dataloader, mode='3Ddice'):
         b_dice_meter = AverageMeter()
         f_dice_meter = AverageMeter()
+        threeD_dice = AverageMeter()
 
         with torch.no_grad():
 
@@ -133,10 +135,17 @@ class AdmmBase(ABC):
                 proba = F.softmax(self.torchnet(image), dim=1)
                 predicted_mask = proba.max(1)[1]
                 [b_iou, f_iou] = dice_loss(predicted_mask, mask)
+
+                if mode == '3Ddice':
+                    predicted_mask = probs2one_hot(proba)
+                    mask_oh = class2one_hot(mask.squeeze(1), 2)
+                    batch_dice = dice_batch(predicted_mask, mask_oh)
+                    threeD_dice.update(batch_dice[1], 1)
+
                 b_dice_meter.update(b_iou, image.size(0))
                 f_dice_meter.update(f_iou, image.size(0))
 
-        return b_dice_meter.avg, f_dice_meter.avg
+        return b_dice_meter.avg, f_dice_meter.avg, threeD_dice.avg
 
     def to(self, device):
         self.torchnet.to(device)
@@ -182,8 +191,8 @@ class AdmmSize(AdmmBase):
         if self.individual_size_constraint:
             self.upbound = int((1.0 + self.eps) * self.img_size.item())
             self.lowbound = int((1.0 - self.eps) * self.img_size.item())
-            LOGGER.debug(
-                'real size: {}, low bound: {}, up bound: {}'.format(self.img_size, self.lowbound, self.upbound))
+            # LOGGER.debug(
+            #     'real size: {}, low bound: {}, up bound: {}'.format(self.img_size, self.lowbound, self.upbound))
 
     def update(self, img_gt_weakgt, criterion):
         self.forward_img(*img_gt_weakgt)

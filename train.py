@@ -35,6 +35,7 @@ if __name__ == '__main__':
     torch.manual_seed(41)
     flags.DEFINE_string('dataroot', default='cardiac', help='the name of the dataset')
     # AdmmSize.setup_arch_flags()
+    # AdmmGCSize.setup_arch_flags()
     ADMM_size_inequality.setup_arch_flags()
     ADMM_Trainer.setup_arch_flags()
     app.run(run)
