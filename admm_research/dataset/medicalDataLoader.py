@@ -1,16 +1,21 @@
 # coding=utf8
 from __future__ import print_function, division
-import os, sys
+import os, sys,random,re
 from PIL import Image, ImageOps
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset,DataLoader,Sampler
 from torchvision import transforms
 from admm_research.method import ModelMode
+from typing import Any, Callable, BinaryIO, Dict, List, Match, Pattern, Tuple, Union, Optional,TypeVar,Iterable
+from operator import itemgetter
+from pathlib import Path
+from itertools import repeat
+from functools import partial
+import torch,numpy as np
 
 default_transform = transforms.Compose([
     transforms.Resize((200, 200)),
     transforms.ToTensor()
 ])
-
 
 def make_dataset(root, mode):
     assert mode in ['train', 'val', 'test']
@@ -90,7 +95,7 @@ class MedicalImageDataset(Dataset):
         self.training = ModelMode.TRAIN
 
     def __len__(self):
-        return int(len(self.imgs))
+        return int(len(self.imgs)/10)
 
     def set_mode(self, mode):
         assert isinstance(mode, (str, ModelMode)), 'the type of mode should be str or ModelMode, given %s' % str(mode)
@@ -128,3 +133,57 @@ class MedicalImageDataset(Dataset):
             mask_[(mask < p + 0.1) & (mask > p - 0.1)] = i
         mask_ = mask_.long()
         return mask_
+
+def id_(x):
+    return x
+
+A = TypeVar("A")
+B = TypeVar("B")
+T = TypeVar("T", torch.Tensor, np.ndarray)
+
+def map_(fn: Callable[[A], B], iter: Iterable[A]) -> List[B]:
+    return list(map(fn, iter))
+
+
+class PatientSampler(Sampler):
+    def __init__(self, dataset: MedicalImageDataset, grp_regex, shuffle=False) -> None:
+        imgs: List[str] = dataset.imgs
+        # Might be needed in case of escape sequence fuckups
+        # self.grp_regex = bytes(grp_regex, "utf-8").decode('unicode_escape')
+        self.grp_regex = grp_regex
+
+        # Configure the shuffling function
+        self.shuffle: bool = shuffle
+        self.shuffle_fn: Callable = (lambda x: random.sample(x, len(x))) if self.shuffle else id_
+
+        print(f"Grouping using {self.grp_regex} regex")
+        # assert grp_regex == "(patient\d+_\d+)_\d+"
+        # grouping_regex: Pattern = re.compile("grp_regex")
+        grouping_regex: Pattern = re.compile(self.grp_regex)
+
+        stems: List[str] = [Path(filename[0]).stem for filename in imgs]  # avoid matching the extension
+        matches: List[Match] = map_(grouping_regex.match, stems)
+        patients: List[str] = [match.group(1) for match in matches]
+
+        unique_patients: List[str] = list(set(patients))
+        assert len(unique_patients) < len(imgs)
+        print(f"Found {len(unique_patients)} unique patients out of {len(imgs)} images")
+
+        self.idx_map: Dict[str, List[int]] = dict(zip(unique_patients, repeat(None)))
+        for i, patient in enumerate(patients):
+            if not self.idx_map[patient]:
+                self.idx_map[patient] = []
+
+            self.idx_map[patient] += [i]
+        # print(self.idx_map)
+        assert sum(len(self.idx_map[k]) for k in unique_patients) == len(imgs)
+
+        print("Patient to slices mapping done")
+
+    def __len__(self):
+        return len(self.idx_map.keys())
+
+    def __iter__(self):
+        values = list(self.idx_map.values())
+        shuffled = self.shuffle_fn(values)
+        return iter(shuffled)

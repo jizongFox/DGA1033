@@ -78,11 +78,13 @@ class Writter_tf(SummaryWriter):
     def add_images(self, dataloader, epoch, device='cpu'):
         dataset_name = dataloader.dataset.name
         np.random.seed(self.random_seed)
-        dataloader_ = copy.deepcopy(dataloader)
+        dataset_ = copy.deepcopy(dataloader.dataset)
         np.random.seed(self.random_seed)
-        selected_indxs = np.random.permutation(dataloader.dataset.__len__())[:self.num_img]
-        selected_imgs = [dataloader.dataset.imgs[indx] for indx in selected_indxs]
-        dataloader_.dataset.imgs = selected_imgs
+        selected_indxs = np.random.permutation(dataset_.imgs.__len__())[:self.num_img]
+        selected_imgs = [dataset_.imgs[indx] for indx in selected_indxs]
+        dataset_.imgs = selected_imgs
+        from torch.utils.data import DataLoader
+        dataloader_ = DataLoader(dataset_,batch_size=1)
         for i, (img, gt, weak_gt, path) in enumerate(dataloader_):
             if gt.sum() == 0 or weak_gt.sum() == 0:
                 continue

@@ -4,7 +4,7 @@ from PIL import ImageOps
 from torchvision import transforms
 
 from admm_research.utils import Colorize
-from .medicalDataLoader import MedicalImageDataset
+from .medicalDataLoader import MedicalImageDataset,PatientSampler
 
 color_transform = Colorize()
 
