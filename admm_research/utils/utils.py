@@ -2,13 +2,19 @@ import torch, torch.nn.functional as F
 import numpy as np, pandas as pd, matplotlib.pyplot as plt
 import maxflow
 from PIL import Image
+from functools import partial
 import cv2, os
 from torchnet.meter import AverageValueMeter
 import copy
 from torchvision.utils import save_image, make_grid
-
+from  tqdm import tqdm
 use_gpu = True
 device = torch.device('cuda') if torch.cuda.is_available() and use_gpu else torch.device('cpu')
+
+tqdm_ = partial(tqdm, ncols=175,
+                leave=False,
+                bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [' '{rate_fmt}{postfix}]')
+
 
 
 def colormap(n):

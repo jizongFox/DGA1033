@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from admm_research import flags, LOGGER, config_logger
 from admm_research.method import AdmmGCSize
-from admm_research.utils import extract_from_big_dict, Writter_tf
-from tqdm import tqdm
+from admm_research.utils import extract_from_big_dict, Writter_tf,tqdm_
+# from tqdm import tqdm
 from torch.utils.data import DataLoader
 from admm_research.method import ModelMode
 import torch, os, shutil
@@ -94,7 +94,6 @@ class ADMM_Trainer(Base):
                 self.writer.add_scalar('train/2Ddice', f_dice, epoch)
                 self.writer.add_images(self.train_loader, epoch, device=self.device)
                 LOGGER.info('At epoch {}, 2d train dice is {:3f}%, under EVAL mode'.format(epoch, f_dice * 100))
-                LOGGER.info('At epoch {}, 3d train dice is {:3f}%, under EVAL mode'.format(epoch, thr_dice * 100))
 
                 f_dice, thr_dice = self._evaluate(self.val_loader, mode='3Ddice')
                 self.writer.add_scalar('val/2Ddice', f_dice, epoch)
@@ -118,7 +117,8 @@ class ADMM_Trainer(Base):
         assert self.admm.torchnet.training == True
         assert dataloader.dataset.training == ModelMode.TRAIN
 
-        for i, (img, gt, wgt, _) in tqdm(enumerate(dataloader)):
+        for i, (img, gt, wgt, _) in tqdm_(enumerate(dataloader)):
+
             if self.hparams['ignore_negative']:
                 if wgt.sum() <= 0 or gt.sum() <= 0:
                     continue

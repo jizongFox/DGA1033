@@ -176,6 +176,10 @@ class SizeConstraint(Base_constraint):
         self.upbound = int(self.gt.sum().float() * (1 + self.eps_size))
 
     def update_Y(self):
+        if self.weakgt.sum()<=0:
+            self.Y = np.zeros(self.Y.shape)
+            return
+
         print('Upbound:%d, Lowband:%d' % (self.upbound, self.lowbound))
         a = np.multiply(
             (1 - self.S_proba - self.eps - self.s_n - self.U_p),

@@ -52,7 +52,7 @@ class AdmmBase(ABC):
         flags.DEFINE_string('arch', default='enet', help='arch_name')
         flags.DEFINE_integer('num_classes', default=2, help='num of classes')
         flags.DEFINE_string('method', default='admm_gc_size', help='arch_name')
-        flags.DEFINE_boolean('ignore_negative', default=True, help='ignore negative examples in the training')
+        flags.DEFINE_boolean('ignore_negative', default=False, help='ignore negative examples in the training')
 
     def __init__(self, torchnet: nn.Module, hparams: dict) -> None:
         super().__init__()
@@ -124,6 +124,11 @@ class AdmmBase(ABC):
         b_dice_meter = AverageMeter()
         f_dice_meter = AverageMeter()
         threeD_dice = AverageMeter()
+        self.torchnet.eval()
+        datalaoder_original_state=dataloader.dataset.training
+        dataloader.dataset.set_mode('eval')
+        assert dataloader.dataset.training == ModelMode.EVAL
+        assert self.torchnet.training == False
 
         with torch.no_grad():
 
@@ -145,6 +150,10 @@ class AdmmBase(ABC):
                 b_dice_meter.update(b_iou, image.size(0))
                 f_dice_meter.update(f_iou, image.size(0))
 
+        self.torchnet.train()
+        dataloader.dataset.set_mode(datalaoder_original_state)
+        assert dataloader.dataset.training == datalaoder_original_state
+        assert self.torchnet.training == True
         return b_dice_meter.avg, f_dice_meter.avg, threeD_dice.avg
 
     def to(self, device):

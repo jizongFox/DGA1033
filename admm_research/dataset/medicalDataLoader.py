@@ -95,7 +95,7 @@ class MedicalImageDataset(Dataset):
         self.training = ModelMode.TRAIN
 
     def __len__(self):
-        return int(len(self.imgs)/10)
+        return int(len(self.imgs))
 
     def set_mode(self, mode):
         assert isinstance(mode, (str, ModelMode)), 'the type of mode should be str or ModelMode, given %s' % str(mode)
@@ -143,7 +143,6 @@ T = TypeVar("T", torch.Tensor, np.ndarray)
 
 def map_(fn: Callable[[A], B], iter: Iterable[A]) -> List[B]:
     return list(map(fn, iter))
-
 
 class PatientSampler(Sampler):
     def __init__(self, dataset: MedicalImageDataset, grp_regex, shuffle=False) -> None:

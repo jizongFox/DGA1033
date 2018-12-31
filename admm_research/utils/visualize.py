@@ -79,6 +79,7 @@ class Writter_tf(SummaryWriter):
         dataset_name = dataloader.dataset.name
         np.random.seed(self.random_seed)
         dataset_ = copy.deepcopy(dataloader.dataset)
+        dataset_.training =False
         np.random.seed(self.random_seed)
         selected_indxs = np.random.permutation(dataset_.imgs.__len__())[:self.num_img]
         selected_imgs = [dataset_.imgs[indx] for indx in selected_indxs]
