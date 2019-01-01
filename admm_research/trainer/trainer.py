@@ -1,11 +1,10 @@
 from abc import ABC, abstractmethod
 from admm_research import flags, LOGGER, config_logger
 from admm_research.method import AdmmGCSize
-from admm_research.utils import extract_from_big_dict, Writter_tf,tqdm_
-# from tqdm import tqdm
+from admm_research.utils import extract_from_big_dict, Writter_tf, tqdm_
 from torch.utils.data import DataLoader
 from admm_research.method import ModelMode
-import torch, os, shutil
+import torch, os, shutil, numpy as np, pandas as pd
 from admm_research.dataset import PatientSampler
 
 
@@ -85,6 +84,8 @@ class ADMM_Trainer(Base):
         self.save_hparams()
 
     def start_training(self):
+        metrics = np.zeros((self.max_epoch, 3))
+
         LOGGER.info('begin training with max_epoch = %d' % self.hparams['max_epoch'])
         for epoch in range(self.hparams['max_epoch']):
             self.lr_scheduler.step()
@@ -93,21 +94,29 @@ class ADMM_Trainer(Base):
                 f_dice, _ = self._evaluate(self.train_loader, mode='2Ddice')
                 self.writer.add_scalar('train/2Ddice', f_dice, epoch)
                 self.writer.add_images(self.train_loader, epoch, device=self.device)
-                LOGGER.info('At epoch {}, 2d train dice is {:3f}%, under EVAL mode'.format(epoch, f_dice * 100))
+                LOGGER.info('At epoch {}, 2d train dice is {:.3f}%, under EVAL mode'.format(epoch, f_dice * 100))
+                metrics[epoch, 0] = f_dice
 
                 f_dice, thr_dice = self._evaluate(self.val_loader, mode='3Ddice')
                 self.writer.add_scalar('val/2Ddice', f_dice, epoch)
                 self.writer.add_scalar('val/3Ddice', thr_dice, epoch)
                 self.writer.add_images(self.val_loader, epoch, device=self.device)
-                LOGGER.info('At epoch {}, 2d val dice is {:3f}%, under EVAL mode'.format(epoch, f_dice * 100))
-                LOGGER.info('At epoch {}, 3d val dice is {:3f}%, under EVAL mode'.format(epoch, thr_dice * 100))
+                LOGGER.info('At epoch {}, 2d val dice is {:.3f}%, under EVAL mode'.format(epoch, f_dice * 100))
+                LOGGER.info('At epoch {}, 3d val dice is {:.3f}%, under EVAL mode'.format(epoch, thr_dice * 100))
+                metrics[epoch, [1,2]] = [f_dice,thr_dice]
+
             try:
                 if epoch >= self.hparams['stop_dilation_epoch']:
                     self.admm.is_dilation = False
+                    LOGGER.info('At epoch {}, Stop_dilation begins'.format(epoch))
             except:
                 continue
 
             self.checkpoint(f_dice, epoch)
+            pd.DataFrame(metrics,columns=['tra_2D_dice','val_2D_dice','val_3D_dice']).to_csv(os.path.join(self.writer_name,'metrics.csv'),index_label='epoch')
+
+
+
         ## clean up
         self.writer.cleanup()
 
@@ -147,7 +156,6 @@ class ADMM_Trainer(Base):
         else:
             val_sampler = PatientSampler(val_set, "(Case\d+_\d+)_\d+", shuffle=False)
         val_batch_size = 1
-
         train_loader = DataLoader(train_set,
                                   num_workers=hparams['num_workers'],
                                   shuffle=True,

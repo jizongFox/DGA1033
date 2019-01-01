@@ -7,7 +7,7 @@ import cv2, maxflow
 import matplotlib.pyplot as plt
 from .ADMM import AdmmBase
 from admm_research.utils import extract_from_big_dict
-
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 class Base_constraint(ABC):
     @abstractmethod
@@ -45,7 +45,7 @@ class Base_constraint(ABC):
 
     def update_S(self, S):
         self.S = S
-        self.S_proba = F.softmax(S, 1)[:, 1].data.numpy().squeeze()
+        self.S_proba = F.softmax(S, 1)[:, 1].data.cpu().numpy().squeeze()
 
     def update_svariables(self):
         assert self.eps is not None
@@ -62,9 +62,9 @@ class Base_constraint(ABC):
 
     def return_L2_loss(self):
         loss = self.p_p * (F.softmax(self.S, 1)[:, 1].squeeze() - torch.Tensor(
-            self.Y + 0.5 - self.eps - self.s_n - self.U_p).float()).norm(2) \
+            self.Y + 0.5 - self.eps - self.s_n - self.U_p).float().to(device)).norm(2) \
                + self.p_n * (F.softmax(self.S, 1)[:, 1].squeeze() - torch.Tensor(
-            self.Y - 0.5 + self.eps + self.s_p - self.U_n).float()).norm(2)
+            self.Y - 0.5 + self.eps + self.s_p - self.U_n).float().to(device)).norm(2)
         return loss / self.Y.reshape(-1).size
 
     def show(self, name=None, fig_num=1):
@@ -112,8 +112,12 @@ class RegConstraint(Base_constraint):
         for k, v in hparam:
             setattr(self, k.replace('reg_', ''), v)
 
+    def __initial_kernel(self):
+        self.kernel = np.ones((self.kernelsize, self.kernelsize))
+        self.kernel[int(self.kernel.shape[0] / 2), int(self.kernel.shape[1] / 2)] = 0
+
     def update_Y(self):
-        if self.weakgt.sum()<=0 or self.gt.sum()<0:
+        if self.weakgt.sum() <= 0 or self.gt.sum() < 0:
             self.Y = np.zeros(self.Y.shape)
             return
 
@@ -150,6 +154,44 @@ class RegConstraint(Base_constraint):
         if new_Y.sum() > 0:
             self.Y = new_Y
 
+    def __set_boundary_term__(self, g, nodeids, img):
+        '''
+        :param g:
+        :param nodeids:
+        :param img:
+        :return:
+        '''
+        kernel = self.kernel
+        sigma = self.sigma
+        lumda = self.lamda
+        transfer_function = lambda pixel_difference: lumda * np.exp((-1 / sigma ** 2) * pixel_difference ** 2)
+        img = img.squeeze().cpu().data.numpy()
+
+        # =====new =========================================
+        padding_size = int(max(kernel.shape) / 2)
+        position = np.array(list(zip(*np.where(kernel != 0))))
+
+        def shift_matrix(matrix, kernel):
+            center_x, center_y = int(kernel.shape[0] / 2), int(kernel.shape[1] / 2)
+            [kernel_x, kernel_y] = np.array(list(zip(*np.where(kernel == 1))))[0]
+            dy, dx = kernel_x - center_x, kernel_y - center_y
+            shifted_matrix = np.roll(matrix, -dy, axis=0)
+            shifted_matrix = np.roll(shifted_matrix, -dx, axis=1)
+            return shifted_matrix
+
+        for p in position[:int(len(position) / 2)]:
+            structure = np.zeros(kernel.shape)
+            structure[p[0], p[1]] = kernel[p[0], p[1]]
+            pad_im = np.pad(img, ((padding_size, padding_size), (padding_size, padding_size)), 'constant',
+                            constant_values=0)
+            shifted_im = shift_matrix(pad_im, structure)
+            weights_ = transfer_function(
+                np.abs(pad_im - shifted_im)[padding_size:-padding_size, padding_size:-padding_size])
+
+            g.add_grid_edges(nodeids, structure=structure, weights=weights_, symmetric=True)
+
+        return g
+
 
 class SizeConstraint(Base_constraint):
     size_hpara_keys = ['size_eps', 'size_eps_size', 'size_p_p', 'size_p_n']
@@ -163,6 +205,10 @@ class SizeConstraint(Base_constraint):
 
     def __init__(self, hparam: dict) -> None:
         super().__init__()
+        self.individual_constrain = hparam['individual_size_constraint']
+        if not self.individual_constrain:
+            self.upbound = hparam['global_upbound']
+            self.lowbound = hparam['global_lowbound']
         hparam = extract_from_big_dict(hparam, self.size_hpara_keys)
         self.name = 'size'
         assert isinstance(hparam, dict)
@@ -175,12 +221,12 @@ class SizeConstraint(Base_constraint):
     def reset(self, img, gt, weakgt):
         super().reset(img, gt, weakgt)
         assert self.eps_size is not None
-
-        self.lowbound = int(self.gt.sum().float() * (1 - self.eps_size))
-        self.upbound = int(self.gt.sum().float() * (1 + self.eps_size))
+        if self.individual_constrain:
+            self.lowbound = int(self.gt.sum().float() * (1 - self.eps_size))
+            self.upbound = int(self.gt.sum().float() * (1 + self.eps_size))
 
     def update_Y(self):
-        if self.weakgt.sum()<=0:
+        if self.weakgt.sum() <= 0:
             self.Y = np.zeros(self.Y.shape)
             return
 
@@ -199,7 +245,6 @@ class SizeConstraint(Base_constraint):
             self.Y = ((a <= a_[self.lowbound]) * 1).reshape(original_shape)
         if useful_pixel_number > self.upbound:
             self.Y = ((a <= a_[self.upbound]) * 1).reshape(original_shape)
-        # print('Y:size:', self.Y.sum())
 
 
 class ADMM_size_inequality(AdmmBase):
@@ -258,20 +303,22 @@ class ADMM_size_inequality(AdmmBase):
             constraint_loss = self.size_constrain.return_L2_loss()  # return L2 loss based on current S and Y
 
             loss = constraint_loss + CE_loss
-            print('loss: CEloss:{},Constraintloss:{}'.format(CE_loss.item(), constraint_loss.item()))
+            # print('loss: CEloss:{},Constraintloss:{}'.format(CE_loss.item(), constraint_loss.item()))
             self.optim.zero_grad()
             loss.backward()
             self.optim.step()
-            print(loss.item())
+            # print(loss.item())
 
             self.size_constrain.update_S(self.torchnet(self.img))  # update S so that it can converge rapidly.
 
 
 class ADMM_reg_size_inequality(ADMM_size_inequality):
     reg_size_keys = ADMM_size_inequality.size_hparam_keys
+
     @classmethod
     def setup_arch_flags(cls):
         super().setup_arch_flags()
+        RegConstraint.setup_arch_flag()
 
     def __init__(self, torchnet: nn.Module, hparams: dict) -> None:
         super().__init__(torchnet, hparams)
@@ -299,3 +346,18 @@ class ADMM_reg_size_inequality(ADMM_size_inequality):
 
             self.size_constrain.update_S(self.torchnet(self.img))  # update S so that it can converge rapidly.
             self.reg_constrain.update_S(self.torchnet(self.img))
+
+    def update_1(self, img_gt_weakgt):
+        img, gt, weak = img_gt_weakgt
+        self.size_constrain.update(self.torchnet(img))  # update Y based on S and slack variables
+        self.reg_constrain.update(self.torchnet(img))
+
+    def update_2(self, criterion):
+        self._update_theta(criterion)  ## update Networks
+
+    def reset(self, img, gt=None, weak=None):
+        self.img = img
+        self.gt = gt
+        self.weak_gt = weak
+        self.size_constrain.reset(img, gt, weak)
+        self.reg_constrain.reset(img, gt, weak)

@@ -101,7 +101,6 @@ class AdmmBase(ABC):
         try:
             getattr(self, name)
         except Exception as e:
-            # print(e)
             return
         plt.figure(fig_num, figsize=(5, 5))
         plt.clf()
@@ -125,7 +124,7 @@ class AdmmBase(ABC):
         f_dice_meter = AverageMeter()
         threeD_dice = AverageMeter()
         self.torchnet.eval()
-        datalaoder_original_state=dataloader.dataset.training
+        datalaoder_original_state = dataloader.dataset.training
         dataloader.dataset.set_mode('eval')
         assert dataloader.dataset.training == ModelMode.EVAL
         assert self.torchnet.training == False
@@ -200,8 +199,6 @@ class AdmmSize(AdmmBase):
         if self.individual_size_constraint:
             self.upbound = int((1.0 + self.eps) * self.img_size.item())
             self.lowbound = int((1.0 - self.eps) * self.img_size.item())
-            # LOGGER.debug(
-            #     'real size: {}, low bound: {}, up bound: {}'.format(self.img_size, self.lowbound, self.upbound))
 
     def update(self, img_gt_weakgt, criterion):
         self.forward_img(*img_gt_weakgt)
@@ -225,22 +222,21 @@ class AdmmSize(AdmmBase):
         if self.weak_gt.sum() == 0 or self.gt.sum() == 0:
             self.s = np.zeros(self.img.squeeze().shape)
             return
+
         a = 0.5 - (F.softmax(self.score, 1)[:, 1].cpu().data.numpy().squeeze() + self.v)
         original_shape = a.shape
         a_ = np.sort(a.ravel())
         useful_pixel_number = (a < 0).sum()
         if self.lowbound < useful_pixel_number and self.upbound > useful_pixel_number:
-            # print('in the middle')
             self.s = ((a < 0) * 1.0).reshape(original_shape)
         elif useful_pixel_number <= self.lowbound:
-            # print('too small')
             self.s = ((a <= a_[self.lowbound + 1]) * 1.0).reshape(original_shape)
         elif useful_pixel_number >= self.upbound:
-            # print('too large')
             self.s = ((a <= a_[self.upbound - 1] * 1.0) * 1).reshape(original_shape)
         else:
             raise ('something wrong here.')
         assert self.s.shape.__len__() == 2
+        LOGGER.debug('low_band:{},up_band:{},realsize:{}, new_S_size:{}'.format(self.lowbound,self.upbound,self.img_size,self.s.sum()))
         # assert self.lowbound <= self.s.sum() <= self.upbound
 
     def _update_theta(self, criterion):
@@ -258,10 +254,10 @@ class AdmmSize(AdmmBase):
             loss.backward()
             self.optim.step()
 
-            self.forward_img(self.img, self.gt, self.weak_gt)
+            self.forward_img(self.img, self.gt, self.weak_gt) ## update self.score
 
     def _update_v(self):
-        new_v = self.v + (F.softmax(self.score, dim=1)[:, 1, :, :].cpu().data.numpy().squeeze() - self.s) * 0.01
+        new_v = self.v + (F.softmax(self.score, dim=1)[:, 1, :, :].cpu().data.numpy().squeeze() - self.s) * 0.1
         self.v = new_v
 
 
