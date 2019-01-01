@@ -42,7 +42,7 @@ class Base_constraint(ABC):
         self.update_Y()
         self.update_svariables()
         self.update_multipliers()
-        return self.return_L2_loss()
+        # return self.return_L2_loss()
 
     def update_S(self, S):
         self.S = S
@@ -315,7 +315,7 @@ class ADMM_size_inequality(AdmmBase):
             CE_loss = criterion(self.score, self.weak_gt.squeeze(1).long())
             constraint_loss = self.size_constrain.return_L2_loss()  # return L2 loss based on current S and Y
             loss = constraint_loss + CE_loss
-            # print('loss: CEloss:{},Constraintloss:{}'.format(CE_loss.item(), constraint_loss.item()))
+            print('loss: CEloss:{},Constraintloss:{}'.format(CE_loss.item(), constraint_loss.item()))
             self.optim.zero_grad()
             loss.backward()
             self.optim.step()
@@ -353,14 +353,15 @@ class ADMM_reg_size_inequality(ADMM_size_inequality):
             loss.backward()
             self.optim.step()
 
-
-            self.size_constrain.update_S(self.torchnet(self.img))  # update S so that it can converge rapidly.
-            self.reg_constrain.update_S(self.torchnet(self.img))
+            pred = self.torchnet(self.img)
+            self.size_constrain.update_S(pred)  # update S so that it can converge rapidly.
+            self.reg_constrain.update_S(pred)
 
     def update_1(self, img_gt_weakgt):
         img, gt, weak = img_gt_weakgt
-        self.size_constrain.update(self.torchnet(img))  # update Y based on S and slack variables
-        self.reg_constrain.update(self.torchnet(img))
+        pred = self.torchnet(img)
+        self.size_constrain.update(pred)  # update Y based on S and slack variables
+        self.reg_constrain.update(pred)
 
     def update_2(self, criterion):
         self._update_theta(criterion)  ## update Networks
@@ -373,6 +374,6 @@ class ADMM_reg_size_inequality(ADMM_size_inequality):
         self.reg_constrain.reset(img, gt, weak)
 
     def show(self, name=None, fig_num=1):
-        self.size_constrain.show(name='S_proba', fig_num=2)
-        self.reg_constrain.show(name='Y',fig_num=3)
+        self.size_constrain.show(name=name, fig_num=fig_num)
+        self.reg_constrain.show(name=name,fig_num=fig_num+10)
 
