@@ -113,6 +113,10 @@ class RegConstraint(Base_constraint):
             setattr(self, k.replace('reg_', ''), v)
 
     def update_Y(self):
+        if self.weakgt.sum()<=0 or self.gt.sum()<0:
+            self.Y = np.zeros(self.Y.shape)
+            return
+
         unary_term_gamma_1 = np.multiply(
             (1 - self.S_proba - self.eps - self.s_n - self.U_p),
             self.p_p) + np.multiply(
@@ -195,7 +199,7 @@ class SizeConstraint(Base_constraint):
             self.Y = ((a <= a_[self.lowbound]) * 1).reshape(original_shape)
         if useful_pixel_number > self.upbound:
             self.Y = ((a <= a_[self.upbound]) * 1).reshape(original_shape)
-        print('Y:size:', self.Y.sum())
+        # print('Y:size:', self.Y.sum())
 
 
 class ADMM_size_inequality(AdmmBase):
@@ -261,3 +265,37 @@ class ADMM_size_inequality(AdmmBase):
             print(loss.item())
 
             self.size_constrain.update_S(self.torchnet(self.img))  # update S so that it can converge rapidly.
+
+
+class ADMM_reg_size_inequality(ADMM_size_inequality):
+    reg_size_keys = ADMM_size_inequality.size_hparam_keys
+    @classmethod
+    def setup_arch_flags(cls):
+        super().setup_arch_flags()
+
+    def __init__(self, torchnet: nn.Module, hparams: dict) -> None:
+        super().__init__(torchnet, hparams)
+        self.reg_constrain = RegConstraint(hparams)
+
+    def update(self, img_gt_weakgt, criterion):
+        img, gt, weak = img_gt_weakgt
+        # self.size_constrain.reset(img, gt, weak)
+        self.size_constrain.update(self.torchnet(img))  # update Y based on S and slack variables
+        self.reg_constrain.update(self.torchnet(img))
+        self._update_theta(criterion)
+
+    def _update_theta(self, criterion):
+        for i in range(self.optim_inner_loop_num):
+            CE_loss = criterion(self.score, self.weak_gt.squeeze(1).long())
+            constraint_loss = self.size_constrain.return_L2_loss()  # return L2 loss based on current S and Y
+            reg_loss = self.reg_constrain.return_L2_loss()
+
+            loss = constraint_loss + CE_loss + reg_loss
+            print('loss: CEloss:{},Constraintloss:{}'.format(CE_loss.item(), constraint_loss.item()))
+            self.optim.zero_grad()
+            loss.backward()
+            self.optim.step()
+            print(loss.item())
+
+            self.size_constrain.update_S(self.torchnet(self.img))  # update S so that it can converge rapidly.
+            self.reg_constrain.update_S(self.torchnet(self.img))

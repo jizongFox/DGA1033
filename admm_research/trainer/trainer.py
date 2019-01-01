@@ -54,7 +54,7 @@ class ADMM_Trainer(Base):
         flags.DEFINE_integer('max_epoch', default=200, help='number of max_epoch')
         flags.DEFINE_multi_integer('milestones', default=[20, 40, 60, 80, 100, 120, 140, 160],
                                    help='miletones for lr_decay')
-        flags.DEFINE_float('gamma', default=0.95, help='gamma for lr_decay')
+        flags.DEFINE_float('gamma', default=0.9, help='gamma for lr_decay')
         flags.DEFINE_string('device', default='cpu', help='cpu or cuda?')
         flags.DEFINE_integer('printfreq', default=5, help='how many output for an epoch')
         flags.DEFINE_integer('num_admm_innerloop', default=2, help='how many output for an epoch')
@@ -90,7 +90,7 @@ class ADMM_Trainer(Base):
             self.lr_scheduler.step()
             self._main_loop(self.train_loader, epoch)
             with torch.no_grad():
-                f_dice, thr_dice = self._evaluate(self.train_loader, mode='2Ddice')
+                f_dice, _ = self._evaluate(self.train_loader, mode='2Ddice')
                 self.writer.add_scalar('train/2Ddice', f_dice, epoch)
                 self.writer.add_images(self.train_loader, epoch, device=self.device)
                 LOGGER.info('At epoch {}, 2d train dice is {:3f}%, under EVAL mode'.format(epoch, f_dice * 100))

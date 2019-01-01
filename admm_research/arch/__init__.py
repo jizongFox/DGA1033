@@ -63,5 +63,4 @@ def get_arch(arch, kwargs):
     assert arch_callable, "Architecture {} is not found!".format(arch)
     net = arch_callable(**kwargs)
     net.apply(weights_init)
-
     return net
