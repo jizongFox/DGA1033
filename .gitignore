@@ -9,3 +9,4 @@ zzz*.py
 archive
 runs/
 envs
+admm_research.egg-info/*

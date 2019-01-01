@@ -226,30 +226,33 @@ def graphcut_with_FG_seed_and_BG_dlation(image, weak_mask, full_mask, kernal_siz
     :param sigma:
     :return:
     '''
-    unary1 = np.zeros(image.squeeze().shape)
-    unary0 = np.zeros(unary1.shape)
-    unary1[(weak_mask == 1).astype(bool)] = -np.inf
-    kernel = np.ones((5, 5), np.uint8)
-    dilation = cv2.dilate(weak_mask.astype(np.float32), kernel, iterations=dilation_level)
-    unary0[(dilation != 1).astype(bool)] = - np.inf
+    if weak_mask.sum()==0 or full_mask.sum()==0:
+        new_gamma= np.zeros(weak_mask.shape)
+    else:
+        unary1 = np.zeros(image.squeeze().shape)
+        unary0 = np.zeros(unary1.shape)
+        unary1[(weak_mask == 1).astype(bool)] = -np.inf
+        kernel = np.ones((5, 5), np.uint8)
+        dilation = cv2.dilate(weak_mask.astype(np.float32), kernel, iterations=dilation_level)
+        unary0[(dilation != 1).astype(bool)] = - np.inf
 
-    g = maxflow.Graph[float](0, 0)
-    # Add the nodes.
-    nodeids = g.add_grid_nodes(list(image.shape))
-    # Add edges with the same capacities.
+        g = maxflow.Graph[float](0, 0)
+        # Add the nodes.
+        nodeids = g.add_grid_nodes(list(image.shape))
+        # Add edges with the same capacities.
 
-    # g.add_grid_edges(nodeids, neighbor_term)
-    g = set_boundary_term(g, nodeids, image, kernel_size=kernal_size, lumda=lamda, sigma=sigma)
+        # g.add_grid_edges(nodeids, neighbor_term)
+        g = set_boundary_term(g, nodeids, image, kernel_size=kernal_size, lumda=lamda, sigma=sigma)
 
-    # Add the terminal edges.
-    g.add_grid_tedges(nodeids, (unary0).squeeze(),
-                      (unary1).squeeze())
-    g.maxflow()
-    # Get the segments.
-    sgm = g.get_grid_segments(nodeids) * 1
+        # Add the terminal edges.
+        g.add_grid_tedges(nodeids, (unary0).squeeze(),
+                          (unary1).squeeze())
+        g.maxflow()
+        # Get the segments.
+        sgm = g.get_grid_segments(nodeids) * 1
 
-    # The labels should be 1 where sgm is False and 0 otherwise.
-    new_gamma = np.int_(np.logical_not(sgm))
+        # The labels should be 1 where sgm is False and 0 otherwise.
+        new_gamma = np.int_(np.logical_not(sgm))
     [db, df] = dice_loss_numpy(new_gamma[np.newaxis, :], full_mask[np.newaxis, :])
     return [db, df]
 
