@@ -1,6 +1,6 @@
 from admm_research import LOGGER, flags, app, config_logger
 from admm_research.dataset import MedicalImageDataset, segment_transform, augment, get_dataset_root
-from admm_research.method import get_method, get_method_class, AdmmSize, AdmmGCSize, ADMM_size_inequality,fullysupervised
+from admm_research.method import get_method, get_method_class, AdmmSize, AdmmGCSize, ADMM_size_inequality,fullysupervised,ADMM_reg_size_inequality
 from admm_research.loss import get_loss_fn
 from admm_research.arch import get_arch
 from admm_research.trainer import ADMM_Trainer
@@ -49,8 +49,9 @@ if __name__ == '__main__':
     flags.DEFINE_string('dataroot', default='cardiac', help='the name of the dataset')
     flags.DEFINE_boolean('data_aug', default=False, help='data_augmentation')
     flags.DEFINE_string('loss',default='partial_ce',help='loss used in admm loop')
-    AdmmSize.setup_arch_flags()
+    # AdmmSize.setup_arch_flags()
     # AdmmGCSize.setup_arch_flags()
     # ADMM_size_inequality.setup_arch_flags()
+    ADMM_reg_size_inequality.setup_arch_flags()
     ADMM_Trainer.setup_arch_flags()
     app.run(run)

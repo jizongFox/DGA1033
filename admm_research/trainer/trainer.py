@@ -6,6 +6,7 @@ from torch.utils.data import DataLoader
 from admm_research.method import ModelMode
 import torch, os, shutil, numpy as np, pandas as pd
 from admm_research.dataset import PatientSampler
+from pathlib import Path
 
 
 class Base(ABC):
@@ -76,6 +77,9 @@ class ADMM_Trainer(Base):
         self.train_loader, self.val_loader = self._build_dataset(datasets, self.hparams)
         if hparams['save_dir'] != 'None':
             self.writer_name = os.path.join(ADMM_Trainer.src, hparams['save_dir'])
+            if Path(self.writer_name).exists():
+                shutil.rmtree(self.writer_name)
+
         else:
             self.writer_name = os.path.join(ADMM_Trainer.src,
                                             self.generate_current_time() + '_' + self.generate_random_str())
@@ -93,29 +97,28 @@ class ADMM_Trainer(Base):
             with torch.no_grad():
                 f_dice, _ = self._evaluate(self.train_loader, mode='2Ddice')
                 self.writer.add_scalar('train/2Ddice', f_dice, epoch)
-                self.writer.add_images(self.train_loader, epoch, device=self.device)
+                # self.writer.add_images(self.train_loader, epoch, device=self.device, opt='tensorboard', omit_image=True)
                 LOGGER.info('At epoch {}, 2d train dice is {:.3f}%, under EVAL mode'.format(epoch, f_dice * 100))
                 metrics[epoch, 0] = f_dice
 
                 f_dice, thr_dice = self._evaluate(self.val_loader, mode='3Ddice')
                 self.writer.add_scalar('val/2Ddice', f_dice, epoch)
                 self.writer.add_scalar('val/3Ddice', thr_dice, epoch)
-                self.writer.add_images(self.val_loader, epoch, device=self.device)
+                self.writer.add_images(self.val_loader, epoch, device=self.device, opt='save', omit_image=False)
                 LOGGER.info('At epoch {}, 2d val dice is {:.3f}%, under EVAL mode'.format(epoch, f_dice * 100))
                 LOGGER.info('At epoch {}, 3d val dice is {:.3f}%, under EVAL mode'.format(epoch, thr_dice * 100))
-                metrics[epoch, [1,2]] = [f_dice,thr_dice]
+                metrics[epoch, [1, 2]] = [f_dice, thr_dice]
 
             try:
                 if epoch >= self.hparams['stop_dilation_epoch']:
                     self.admm.is_dilation = False
                     LOGGER.info('At epoch {}, Stop_dilation begins'.format(epoch))
             except:
-                continue
+                pass
 
             self.checkpoint(f_dice, epoch)
-            pd.DataFrame(metrics,columns=['tra_2D_dice','val_2D_dice','val_3D_dice']).to_csv(os.path.join(self.writer_name,'metrics.csv'),index_label='epoch')
-
-
+            pd.DataFrame(metrics, columns=['tra_2D_dice', 'val_2D_dice', 'val_3D_dice']).to_csv(
+                os.path.join(self.writer_name, 'metrics.csv'), index_label='epoch')
 
         ## clean up
         self.writer.cleanup()

@@ -6,6 +6,10 @@ import copy, os, shutil
 import matplotlib.pyplot as plt
 from admm_research.utils import dice_loss
 # plt.switch_backend('agg')
+import torch
+from pathlib import Path
+from skimage import io, data
+
 
 class Dashboard:
 
@@ -58,7 +62,7 @@ class Writter_tf(SummaryWriter):
         writerbasename = os.path.basename(self.writer_name)
         shutil.move(os.path.join(src, writerbasename), os.path.join(des, writerbasename))
 
-    def customized_add_image(self, img, gt, weak_gt, path, epoch):
+    def customized_add_image(self, img, gt, weak_gt, pred_mask,path, epoch):
         assert img.size(0) == 1
 
         fig = plt.figure()
@@ -67,7 +71,7 @@ class Writter_tf(SummaryWriter):
                     label='GT')
         plt.contour(weak_gt.data.cpu().squeeze().numpy(), levels=[0.5], colors="yellow", alpha=0.2, linewidth=0.001,
                     label='GT')
-        pred = self.torchnet(img).max(1)[1]
+        pred =pred_mask
         [_, dice] = dice_loss(pred, gt)
         plt.contour(pred.data.cpu().squeeze().numpy(), levels=[0.5], level=[0],
                     colors="red", alpha=0.2, linewidth=0.001, label='CNN')
@@ -75,19 +79,40 @@ class Writter_tf(SummaryWriter):
         plt.axis('off')
         self.add_figure(path, fig, global_step=epoch)
 
-    def add_images(self, dataloader, epoch, device='cpu'):
+    def add_images(self, dataloader, epoch, device='cpu', opt='tensorboard', omit_image=True):
+        assert opt in ('tensorboard', 'save', 'both')
         dataset_name = dataloader.dataset.name
         np.random.seed(self.random_seed)
         dataset_ = copy.deepcopy(dataloader.dataset)
-        dataset_.training =False
-        np.random.seed(self.random_seed)
-        selected_indxs = np.random.permutation(dataset_.imgs.__len__())[:self.num_img]
-        selected_imgs = [dataset_.imgs[indx] for indx in selected_indxs]
-        dataset_.imgs = selected_imgs
+        dataset_.training = False
+        if omit_image:
+            np.random.seed(self.random_seed)
+            selected_indxs = np.random.permutation(dataset_.imgs.__len__())[:self.num_img]
+            selected_imgs = [dataset_.imgs[indx] for indx in selected_indxs]
+            dataset_.imgs = selected_imgs
         from torch.utils.data import DataLoader
-        dataloader_ = DataLoader(dataset_,batch_size=1)
-        for i, (img, gt, weak_gt, path) in enumerate(dataloader_):
-            if gt.sum() == 0 or weak_gt.sum() == 0:
-                continue
-            img, gt, weak_gt = img.to(device), gt.to(device), weak_gt.to(device)
-            self.customized_add_image(img, gt, weak_gt, os.path.join(dataset_name, os.path.basename(path[0])), epoch)
+        dataloader_ = DataLoader(dataset_, batch_size=1)
+        self.torchnet.eval()
+        with torch.no_grad():
+            for i, (img, gt, weak_gt, path) in enumerate(dataloader_):
+
+                img, gt, weak_gt = img.to(device), gt.to(device), weak_gt.to(device)
+                pred_mask = self.torchnet(img).max(1)[1]
+                assert pred_mask.shape[0] == 1
+
+                if opt == 'tensorboard' or opt == 'both':
+                    self.customized_add_image(img, gt, weak_gt,pred_mask, os.path.join(dataset_name, os.path.basename(path[0])),
+                                              epoch)
+                if opt == 'save' or opt == 'both':
+                    self.save_image(pred_mask, os.path.join(dataset_name, os.path.basename(path[0])), epoch)
+        self.torchnet.train()
+
+    def save_image(self, pred_mask, path, epoch):
+        assert pred_mask.shape.__len__()==3 and pred_mask.shape[0]==1
+        save_path = Path(self.writer_name) / str('%.3d'%epoch)
+        save_path.mkdir(parents=True, exist_ok=True)
+        save_path = save_path / str(path)
+        save_path.parent.mkdir(parents=True,exist_ok=True)
+        pred_mask = pred_mask.data.cpu().numpy().squeeze()
+        pred_mask[pred_mask==1]=255
+        io.imsave(save_path, pred_mask)

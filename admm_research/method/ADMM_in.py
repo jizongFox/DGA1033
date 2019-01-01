@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 import torch, numpy as np
+from admm_research import LOGGER
 from torch import nn as nn
 from torch.nn import functional as F
 from admm_research import flags
@@ -45,7 +46,7 @@ class Base_constraint(ABC):
 
     def update_S(self, S):
         self.S = S
-        self.S_proba = F.softmax(S, 1)[:, 1].data.cpu().numpy().squeeze()
+        self.S_proba = F.softmax(S/10, 1)[:, 1].data.cpu().numpy().squeeze()
 
     def update_svariables(self):
         assert self.eps is not None
@@ -71,7 +72,7 @@ class Base_constraint(ABC):
         try:
             getattr(self, name)
         except Exception as e:
-            print(e)
+            # print(e)
             return
         plt.figure(fig_num, figsize=(5, 5))
         plt.clf()
@@ -93,24 +94,32 @@ class Base_constraint(ABC):
 
 
 class RegConstraint(Base_constraint):
-    reg_hpara_keys = ['reg_eps', 'reg_p_p', 'reg_p_n', 'reg_lamda', 'reg_sigma', 'reg_kernelsize', 'reg_dilation_level']
+    reg_hpara_keys = ['reg_eps', 'reg_p_p', 'reg_p_n', 'reg_lamda', 'reg_sigma', 'reg_kernelsize', 'reg_dilation_level','reg_kernelsize']
 
+    @classmethod
     def setup_arch_flag(cls):
         flags.DEFINE_float('reg_eps', default=0.25, help='eps for inequality method')
         flags.DEFINE_float('reg_p_p', default=1, help='penalty for p_positive')
         flags.DEFINE_float('reg_p_n', default=1, help='penalty for p_negative')
         flags.DEFINE_float('reg_lamda', default=1, help='lamda for unary term and pairwise term')
         flags.DEFINE_float('reg_sigma', default=0.02, help='smoothness term for pairwise term')
-        flags.DEFINE_float('reg_dilation_level', default=10, help='dilation for the weak mask')
+        flags.DEFINE_integer('reg_dilation_level', default=10, help='dilation for the weak mask')
+        flags.DEFINE_integer('reg_kernelsize', default=5, help='dilation for the weak mask')
+
+
 
     def __init__(self, hparam: dict) -> None:
         super().__init__()
         hparam = extract_from_big_dict(hparam, self.reg_hpara_keys)
         self.name = 'reg'
         assert isinstance(hparam, dict)
-        assert hparam.keys() in self.reg_hpara_keys
-        for k, v in hparam:
+        for k in hparam.keys():
+            assert k in self.reg_hpara_keys
+
+        for k, v in hparam.items():
             setattr(self, k.replace('reg_', ''), v)
+        self.__initial_kernel()
+        self.is_dilation = True
 
     def __initial_kernel(self):
         self.kernel = np.ones((self.kernelsize, self.kernelsize))
@@ -126,12 +135,13 @@ class RegConstraint(Base_constraint):
             self.p_p) + np.multiply(
             (- self.S_proba + self.eps + self.s_p - self.U_n),
             self.p_n)
-        unary_term_gamma_1[(self.weak_mask == 1).astype(bool)] = -np.inf
+        unary_term_gamma_1[(self.weakgt.data.cpu().numpy().squeeze() == 1).astype(bool)] = -np.inf
 
-        kernel = np.ones((5, 5), np.uint8)
-        dilation = cv2.dilate(self.weak_mask.astype(np.float32), kernel, iterations=self.dilation_level)
-        unary_term_gamma_0 = np.zeros(unary_term_gamma_1.shape)
-        unary_term_gamma_1[dilation != 1] = np.inf
+        if self.is_dilation:
+            kernel = np.ones((5, 5), np.uint8)
+            dilation = cv2.dilate(self.weakgt.data.cpu().numpy().squeeze().astype(np.float32), kernel, iterations=self.dilation_level)
+            unary_term_gamma_0 = np.zeros(unary_term_gamma_1.shape)
+            unary_term_gamma_1[dilation != 1] = np.inf
 
         g = maxflow.Graph[float](0, 0)
         # Add the nodes.
@@ -139,7 +149,7 @@ class RegConstraint(Base_constraint):
         # Add edges with the same capacities.
 
         # g.add_grid_edges(nodeids, neighbor_term)
-        g = self.__set_boundary_term__(g, nodeids, self.image)
+        g = self.__set_boundary_term__(g, nodeids, self.img)
 
         # Add the terminal edges.
         g.add_grid_tedges(nodeids, (unary_term_gamma_0).squeeze(),
@@ -199,7 +209,7 @@ class SizeConstraint(Base_constraint):
     @classmethod
     def setup_arch_flag(cls):
         flags.DEFINE_float('size_eps', default=0.25, help='eps for inequality method')
-        flags.DEFINE_float('size_eps_size', default=0.00, help='eps_size for interval size band')
+        flags.DEFINE_float('size_eps_size', default=0.2, help='eps_size for interval size band')
         flags.DEFINE_float('size_p_p', default=10, help='penalty for p_positive')
         flags.DEFINE_float('size_p_n', default=10, help='penalty for p_negative')
 
@@ -229,8 +239,8 @@ class SizeConstraint(Base_constraint):
         if self.weakgt.sum() <= 0:
             self.Y = np.zeros(self.Y.shape)
             return
+        self.S_proba[self.weakgt.data.cpu().numpy().squeeze()==1]=1
 
-        print('Upbound:%d, Lowband:%d' % (self.upbound, self.lowbound))
         a = np.multiply(
             (1 - self.S_proba - self.eps - self.s_n - self.U_p),
             self.p_p) + np.multiply(
@@ -242,9 +252,12 @@ class SizeConstraint(Base_constraint):
         if self.lowbound < useful_pixel_number and self.upbound > useful_pixel_number:
             self.Y = ((a < 0) * 1.0).reshape(original_shape)
         if useful_pixel_number < self.lowbound:
-            self.Y = ((a <= a_[self.lowbound]) * 1).reshape(original_shape)
+            self.Y = ((a <= a_[self.lowbound+1]) * 1.0).reshape(original_shape)
         if useful_pixel_number > self.upbound:
-            self.Y = ((a <= a_[self.upbound]) * 1).reshape(original_shape)
+            self.Y = ((a <= a_[self.upbound-1]) * 1.0).reshape(original_shape)
+        LOGGER.debug(
+            'low_band:{},up_band:{},realsize:{}, new_S_size:{}'.format(self.lowbound, self.upbound, self.gt.sum(),
+                                                                       self.Y.sum()))
 
 
 class ADMM_size_inequality(AdmmBase):
@@ -301,14 +314,11 @@ class ADMM_size_inequality(AdmmBase):
         for i in range(self.optim_inner_loop_num):
             CE_loss = criterion(self.score, self.weak_gt.squeeze(1).long())
             constraint_loss = self.size_constrain.return_L2_loss()  # return L2 loss based on current S and Y
-
             loss = constraint_loss + CE_loss
             # print('loss: CEloss:{},Constraintloss:{}'.format(CE_loss.item(), constraint_loss.item()))
             self.optim.zero_grad()
             loss.backward()
             self.optim.step()
-            # print(loss.item())
-
             self.size_constrain.update_S(self.torchnet(self.img))  # update S so that it can converge rapidly.
 
 
@@ -319,6 +329,7 @@ class ADMM_reg_size_inequality(ADMM_size_inequality):
     def setup_arch_flags(cls):
         super().setup_arch_flags()
         RegConstraint.setup_arch_flag()
+        flags.DEFINE_integer('stop_dilation_epoch',default=100, help='stop dilation')
 
     def __init__(self, torchnet: nn.Module, hparams: dict) -> None:
         super().__init__(torchnet, hparams)
@@ -326,7 +337,6 @@ class ADMM_reg_size_inequality(ADMM_size_inequality):
 
     def update(self, img_gt_weakgt, criterion):
         img, gt, weak = img_gt_weakgt
-        # self.size_constrain.reset(img, gt, weak)
         self.size_constrain.update(self.torchnet(img))  # update Y based on S and slack variables
         self.reg_constrain.update(self.torchnet(img))
         self._update_theta(criterion)
@@ -338,11 +348,11 @@ class ADMM_reg_size_inequality(ADMM_size_inequality):
             reg_loss = self.reg_constrain.return_L2_loss()
 
             loss = constraint_loss + CE_loss + reg_loss
-            print('loss: CEloss:{},Constraintloss:{}'.format(CE_loss.item(), constraint_loss.item()))
+            # print('loss: CEloss:{},Constraintloss:{}'.format(CE_loss.item(), constraint_loss.item()))
             self.optim.zero_grad()
             loss.backward()
             self.optim.step()
-            print(loss.item())
+
 
             self.size_constrain.update_S(self.torchnet(self.img))  # update S so that it can converge rapidly.
             self.reg_constrain.update_S(self.torchnet(self.img))
@@ -361,3 +371,8 @@ class ADMM_reg_size_inequality(ADMM_size_inequality):
         self.weak_gt = weak
         self.size_constrain.reset(img, gt, weak)
         self.reg_constrain.reset(img, gt, weak)
+
+    def show(self, name=None, fig_num=1):
+        self.size_constrain.show(name='S_proba', fig_num=2)
+        self.reg_constrain.show(name='Y',fig_num=3)
+

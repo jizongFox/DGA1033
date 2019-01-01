@@ -10,7 +10,7 @@ LOGGER.parent = None
 def config_logger(log_dir):
     """ Get console handler """
     log_format = logging.Formatter("[%(module)s - %(asctime)s - %(levelname)s] %(message)s")
-    LOGGER.setLevel(logging.DEBUG)
+    LOGGER.setLevel(logging.INFO)
     console_handler = logging.StreamHandler(stream=sys.stdout)
     console_handler.setFormatter(log_format)
 

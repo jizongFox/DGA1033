@@ -1,21 +1,22 @@
 # coding=utf8
 from __future__ import print_function, division
-import os, sys,random,re
+import os, sys, random, re
 from PIL import Image, ImageOps
-from torch.utils.data import Dataset,DataLoader,Sampler
+from torch.utils.data import Dataset, DataLoader, Sampler
 from torchvision import transforms
 from admm_research.method import ModelMode
-from typing import Any, Callable, BinaryIO, Dict, List, Match, Pattern, Tuple, Union, Optional,TypeVar,Iterable
+from typing import Any, Callable, BinaryIO, Dict, List, Match, Pattern, Tuple, Union, Optional, TypeVar, Iterable
 from operator import itemgetter
 from pathlib import Path
 from itertools import repeat
 from functools import partial
-import torch,numpy as np
+import torch, numpy as np
 
 default_transform = transforms.Compose([
     transforms.Resize((200, 200)),
     transforms.ToTensor()
 ])
+
 
 def make_dataset(root, mode):
     assert mode in ['train', 'val', 'test']
@@ -95,7 +96,7 @@ class MedicalImageDataset(Dataset):
         self.training = ModelMode.TRAIN
 
     def __len__(self):
-        return int(len(self.imgs))
+        return int(len(self.imgs)/5)
 
     def set_mode(self, mode):
         assert isinstance(mode, (str, ModelMode)), 'the type of mode should be str or ModelMode, given %s' % str(mode)
@@ -134,15 +135,19 @@ class MedicalImageDataset(Dataset):
         mask_ = mask_.long()
         return mask_
 
+
 def id_(x):
     return x
+
 
 A = TypeVar("A")
 B = TypeVar("B")
 T = TypeVar("T", torch.Tensor, np.ndarray)
 
+
 def map_(fn: Callable[[A], B], iter: Iterable[A]) -> List[B]:
     return list(map(fn, iter))
+
 
 class PatientSampler(Sampler):
     def __init__(self, dataset: MedicalImageDataset, grp_regex, shuffle=False) -> None:

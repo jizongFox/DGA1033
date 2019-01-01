@@ -48,7 +48,7 @@ class AdmmBase(ABC):
         flags.DEFINE_float('weight_decay', default=0, help='decay of learning rate schedule')
         flags.DEFINE_float('lr', default=0.001, help='learning rate')
         flags.DEFINE_boolean('amsgrad', default=False, help='amsgrad')
-        flags.DEFINE_integer('optim_inner_loop_num', default=10, help='optim_inner_loop_num')
+        flags.DEFINE_integer('optim_inner_loop_num', default=1, help='optim_inner_loop_num')
         flags.DEFINE_string('arch', default='enet', help='arch_name')
         flags.DEFINE_integer('num_classes', default=2, help='num of classes')
         flags.DEFINE_string('method', default='admm_gc_size', help='arch_name')

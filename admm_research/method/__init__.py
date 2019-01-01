@@ -1,6 +1,6 @@
 from .ADMM import AdmmSize, ModelMode, AdmmGCSize
 from .fullysupervised import FullySupervisedWrapper
-from .ADMM_in import ADMM_size_inequality
+from .ADMM_in import ADMM_size_inequality, ADMM_reg_size_inequality
 
 """
 Package
@@ -32,6 +32,7 @@ _register_arch('admm_size', AdmmSize)
 _register_arch('admm_gc_size', AdmmGCSize)
 _register_arch('fullysupervised', FullySupervisedWrapper)
 _register_arch('admm_size_in', ADMM_size_inequality)
+_register_arch('admm_gc_size_in', ADMM_reg_size_inequality)
 
 """
 Public interface
