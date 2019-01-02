@@ -4,6 +4,8 @@ This is the code using ADMM for weaky supervised setting with ACDC and Promise d
 Author: Jizong Peng
 Data: 18.11.2018
 
+The code here is for the paper "DCSegNet: A Discretely-Constrained Segmentation Network for Medical Segmentation", accepted by Medical Imaging meets NIPS, NeurIPS 2018, Montreal.
+
 Before running script, install the package by ``pip install -e .``
 
 
