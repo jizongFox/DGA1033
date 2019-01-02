@@ -59,7 +59,8 @@ class Writter_tf(SummaryWriter):
     def cleanup(self, src='runs', des='archive'):
         self.export_scalars_to_json(os.path.join(self.writer_name, 'json.json'))
         self.close()
-        writerbasename = os.path.basename(self.writer_name)
+        # writerbasename = os.path.basename(self.writer_name)
+        writerbasename = self.writer_name.replace('./runs/','')
         shutil.move(os.path.join(src, writerbasename), os.path.join(des, writerbasename))
 
     def customized_add_image(self, img, gt, weak_gt, pred_mask,path, epoch):
