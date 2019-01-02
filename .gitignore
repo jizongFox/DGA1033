@@ -1,0 +1,12 @@
+*__pycache__/
+*.idea/*
+*dataset/*
+checkpoints/*
+results/*
+.DS_Store
+run/
+zzz*.py
+archive
+runs/
+envs
+admm_research.egg-info/*
