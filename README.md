@@ -4,6 +4,9 @@ This is the code using ADMM for weaky supervised setting with ACDC and Promise d
 Author: Jizong Peng
 Data: 18.11.2018
 
+Before running script, install the package by ``pip install -e .``
+
+
 For supervised training using ACDC dataset:<br>
 ``python train.py --dataroot=cardiac --method=fullysupervised --data_aug=True --arch=enet --loss=cross_entropy --max_epoch=1 --save_dir=results/cardiac/FS_enet_Daug --num_admm_innerloop=1
 ``
