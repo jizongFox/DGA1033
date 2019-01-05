@@ -12,7 +12,6 @@ def mmp(function, args):
 
 
 class args:
-
     def __init__(self) -> None:
         super().__init__()
         self.name = 'cardiac'
@@ -46,10 +45,11 @@ def test_one(args):
         if gt.sum() == 0 or wgt.sum() == 0:
             continue
         img, gt, wgt = img.to(device), gt.to(device), wgt.to(device)
-        [_, fd] = graphcut_with_FG_seed_and_BG_dlation(img.cpu().numpy().squeeze(), wgt.cpu().numpy().squeeze(),
-                                                       gt.cpu().numpy().squeeze(), args.kernal_size, args.lamda,
-                                                       args.sigma,
-                                                       args.dilation_level)
+        assert gt.max() == wgt.max()
+        gamma, [_, fd] = graphcut_with_FG_seed_and_BG_dlation(img.cpu().numpy().squeeze(), wgt.cpu().numpy().squeeze(),
+                                                              gt.cpu().numpy().squeeze(), args.kernal_size, args.lamda,
+                                                              args.sigma,
+                                                              args.dilation_level)
         fd_meter.update(fd)
         train_loader_.set_postfix({'fd': fd_meter.avg})
 
@@ -62,10 +62,10 @@ def main(user_choice):
     lamdas = [0, 0.1, 1, 2, 5, 10]
     dilation_levels = [0, 3, 5, 7, 9, 12, 14]
     if user_choice.debug:
-        sigmas = [0.001,]
+        sigmas = [0.001, ]
         kernal_sizes = [3]
-        lamdas = [0,]
-        dilation_levels = [0,]
+        lamdas = [0, 0.1]
+        dilation_levels = [0, 5, 7]
 
     config_list = []
     for s in sigmas:
@@ -84,18 +84,28 @@ def main(user_choice):
     outdir = Path(user_choice.output_dir)
     outdir.mkdir(exist_ok=True, parents=True)
     results.to_csv(os.path.join(outdir.name, '%s.csv' % user_choice.name))
+    parse_results(os.path.join(outdir.name, '%s.csv' % user_choice.name))
 
 
 def input_args():
     parser = argparse.ArgumentParser(description='user input')
     parser.add_argument('--name', type=str, required=True)
+    parser.add_argument('--folder_name', type=str, default='WeaklyAnnotations')
     parser.add_argument('--output_dir', type=str, required=True)
     parser.add_argument('--debug', action='store_true', help='help with debug')
-
     args_ = parser.parse_args()
-
     return args_
 
 
+def parse_results(in_path):
+    file = pd.read_csv(in_path, index_col=0)
+    sorted_file = file.sort_values(by=['fd'], ascending=False)
+    print(sorted_file.head())
+    return {k: list(v.values())[0] for k, v in sorted_file.head(1).to_dict().items()}
+
+
 if __name__ == '__main__':
-    main(input_args())
+    received_args = input_args()
+    main(received_args)
+    parse_results('parameterSearch/cardiac.csv')
+    parse_results('parameterSearch/prostate.csv')

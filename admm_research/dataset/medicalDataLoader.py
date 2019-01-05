@@ -18,14 +18,14 @@ default_transform = transforms.Compose([
 ])
 
 
-def make_dataset(root, mode):
+def make_dataset(root, mode, folder_name='WeaklyAnnotations'):
     assert mode in ['train', 'val', 'test']
     items = []
 
     if mode == 'train':
         train_img_path = os.path.join(root, 'train', 'Img')
         train_mask_path = os.path.join(root, 'train', 'GT')
-        train_mask_weak_path = os.path.join(root, 'train', 'WeaklyAnnotations')
+        train_mask_weak_path = os.path.join(root, 'train', folder_name)
 
         images = os.listdir(train_img_path)
         labels = os.listdir(train_mask_path)
@@ -42,7 +42,7 @@ def make_dataset(root, mode):
     elif mode == 'val':
         train_img_path = os.path.join(root, 'val', 'Img')
         train_mask_path = os.path.join(root, 'val', 'GT')
-        train_mask_weak_path = os.path.join(root, 'val', 'WeaklyAnnotations')
+        train_mask_weak_path = os.path.join(root, 'val', folder_name)
 
         images = os.listdir(train_img_path)
         labels = os.listdir(train_mask_path)
@@ -59,7 +59,7 @@ def make_dataset(root, mode):
     else:
         train_img_path = os.path.join(root, 'test', 'Img')
         train_mask_path = os.path.join(root, 'test', 'GT')
-        train_mask_weak_path = os.path.join(root, 'test', 'WeaklyAnnotations')
+        train_mask_weak_path = os.path.join(root, 'test', folder_name)
 
         images = os.listdir(train_img_path)
         labels = os.listdir(train_mask_path)
@@ -79,7 +79,7 @@ def make_dataset(root, mode):
 
 class MedicalImageDataset(Dataset):
 
-    def __init__(self, root_dir, mode, transform=None, augment=None, equalize=False):
+    def __init__(self, root_dir, mode, foldername='WeaklyAnnotations', transform=None, augment=None, equalize=False):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
@@ -90,7 +90,7 @@ class MedicalImageDataset(Dataset):
         self.name = mode + '_dataset'
         self.root_dir = root_dir
         self.transform = transform
-        self.imgs = make_dataset(root_dir, mode)
+        self.imgs = make_dataset(root_dir, mode, folder_name=foldername)
         self.augment = augment
         self.equalize = equalize
         self.training = ModelMode.TRAIN

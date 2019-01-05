@@ -179,6 +179,8 @@ def set_boundary_term(g, nodeids, img, kernel_size, lumda, sigma):
         shifted_im = shift_matrix(pad_im, structure)
         weights_ = transfer_function(
             np.abs(pad_im - shifted_im)[padding_size:-padding_size, padding_size:-padding_size])
+        if lumda==0:
+            print()
 
         g.add_grid_edges(nodeids, structure=structure, weights=weights_, symmetric=False)
 
@@ -254,7 +256,7 @@ def graphcut_with_FG_seed_and_BG_dlation(image, weak_mask, full_mask, kernal_siz
         # The labels should be 1 where sgm is False and 0 otherwise.
         new_gamma = np.int_(np.logical_not(sgm))
     [db, df] = dice_loss_numpy(new_gamma[np.newaxis, :], full_mask[np.newaxis, :])
-    return [db, df]
+    return new_gamma, [db, df]
 
 
 def split_label_unlabel_dataset(train_set, split_ratio):
