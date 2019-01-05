@@ -17,8 +17,6 @@ python train.py --device=cuda  --dataroot=cardiac --method=admm_size --data_aug=
 python train.py --device=cuda  --dataroot=cardiac --method=admm_size --data_aug=False --arch=enet --max_epoch=80 --save_dir=results/cardiac/size_enet_0.4 --eps=0.4 
 
 
-
-
 ## with both 
 python train.py --device=cuda  --dataroot=cardiac --method=admm_gc_size --data_aug=True --arch=enet --max_epoch=80 --save_dir=results/cardiac/gcsize_enet_Daug_0.0 --eps=0.0 &
 python train.py --device=cuda  --dataroot=cardiac --method=admm_gc_size --data_aug=False --arch=enet --max_epoch=80 --save_dir=results/cardiac/gcsize_enet_0.0 --eps=0.0 &

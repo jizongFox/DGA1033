@@ -61,7 +61,12 @@ class Writter_tf(SummaryWriter):
         self.close()
         # writerbasename = os.path.basename(self.writer_name)
         writerbasename = self.writer_name.replace('./runs/','')
-        shutil.move(os.path.join(src, writerbasename), os.path.join(des, writerbasename))
+        try:
+            shutil.move(os.path.join(src, writerbasename), os.path.join(des, writerbasename))
+        except:
+            shutil.rmtree(os.path.join(des,writerbasename))
+            shutil.move(os.path.join(src, writerbasename), os.path.join(des, writerbasename))
+
 
     def customized_add_image(self, img, gt, weak_gt, pred_mask,path, epoch):
         assert img.size(0) == 1
