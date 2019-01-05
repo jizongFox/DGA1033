@@ -61,6 +61,12 @@ def main(user_choice):
     kernal_sizes = [3, 5, 7]
     lamdas = [0, 0.1, 1, 2, 5, 10]
     dilation_levels = [0, 3, 5, 7, 9, 12, 14]
+    if user_choice.debug:
+        sigmas = [0.001,]
+        kernal_sizes = [3]
+        lamdas = [0,]
+        dilation_levels = [0,]
+
     config_list = []
     for s in sigmas:
         for k in kernal_sizes:
@@ -84,6 +90,7 @@ def input_args():
     parser = argparse.ArgumentParser(description='user input')
     parser.add_argument('--name', type=str, required=True)
     parser.add_argument('--output_dir', type=str, required=True)
+    parser.add_argument('--debug', action='store_true', help='help with debug')
 
     args_ = parser.parse_args()
 
