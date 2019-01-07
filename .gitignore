@@ -10,3 +10,4 @@ archive
 runs/
 envs
 admm_research.egg-info/*
+admm_research/__init__.pyc
