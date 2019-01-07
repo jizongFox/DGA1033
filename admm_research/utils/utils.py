@@ -1,6 +1,7 @@
 import torch, torch.nn.functional as F
 import numpy as np, pandas as pd, matplotlib.pyplot as plt
 import maxflow
+import multiprocessing
 from PIL import Image
 from functools import partial
 import cv2, os
@@ -11,7 +12,7 @@ from  tqdm import tqdm
 use_gpu = True
 device = torch.device('cuda') if torch.cuda.is_available() and use_gpu else torch.device('cpu')
 
-tqdm_ = partial(tqdm, ncols=175,
+tqdm_ = partial(tqdm, ncols=75,
                 leave=False,
                 bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [' '{rate_fmt}{postfix}]')
 
@@ -329,6 +330,7 @@ from typing import Any, Callable, Iterable, List, Set, Tuple, TypeVar, Union
 A = TypeVar("A")
 B = TypeVar("B")
 T = TypeVar("T", Tensor, np.ndarray)
+
 
 
 def map_(fn: Callable[[A], B], iter: Iterable[A]) -> List[B]:
