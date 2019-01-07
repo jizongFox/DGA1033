@@ -34,26 +34,26 @@
 # inequality
 ## with only size constraints:
 #python train_in.py --device=cuda  --dataroot=cardiac --method=admm_size_in --data_aug=True --arch=enet --max_epoch=80 --save_dir=results/cardiac/sizeIN_enet_Daug_0.0 --eps=0.0 &
-python train_in.py --device=cuda  --dataroot=cardiac --method=admm_size_in --data_aug=False --arch=enet --max_epoch=80 --save_dir=results/cardiac/sizeIN_enet_0.0 --eps=0.0 &
+#python train_in.py --device=cuda  --dataroot=cardiac --method=admm_size_in --data_aug=False --arch=enet --max_epoch=80 --save_dir=results/cardiac/sizeIN_enet_0.0 --eps=0.0 &
 
 #python train_in.py --device=cuda  --dataroot=cardiac --method=admm_size_in --data_aug=True --arch=enet --max_epoch=80 --save_dir=results/cardiac/sizeIN_enet_Daug_0.1 --eps=0.1 &
-python train_in.py --device=cuda  --dataroot=cardiac --method=admm_size_in --data_aug=False --arch=enet --max_epoch=80 --save_dir=results/cardiac/sizeIN_enet_0.1 --eps=0.1 &
+#python train_in.py --device=cuda  --dataroot=cardiac --method=admm_size_in --data_aug=False --arch=enet --max_epoch=80 --save_dir=results/cardiac/sizeIN_enet_0.1 --eps=0.1 &
 
 #python train_in.py --device=cuda  --dataroot=cardiac --method=admm_size_in --data_aug=True --arch=enet --max_epoch=80 --save_dir=results/cardiac/sizeIN_enet_Daug_0.2 --eps=0.2 &
-python train_in.py --device=cuda  --dataroot=cardiac --method=admm_size_in --data_aug=False --arch=enet --max_epoch=80 --save_dir=results/cardiac/sizeIN_enet_0.2 --eps=0.2 &
+#python train_in.py --device=cuda  --dataroot=cardiac --method=admm_size_in --data_aug=False --arch=enet --max_epoch=80 --save_dir=results/cardiac/sizeIN_enet_0.2 --eps=0.2 &
 
 #python train_in.py --device=cuda  --dataroot=cardiac --method=admm_size_in --data_aug=True --arch=enet --max_epoch=80 --save_dir=results/cardiac/sizeIN_enet_Daug_0.4 --eps=0.4 &
-python train_in.py --device=cuda  --dataroot=cardiac --method=admm_size_in --data_aug=False --arch=enet --max_epoch=80 --save_dir=results/cardiac/sizeIN_enet_0.4 --eps=0.4 
+#python train_in.py --device=cuda  --dataroot=cardiac --method=admm_size_in --data_aug=False --arch=enet --max_epoch=80 --save_dir=results/cardiac/sizeIN_enet_0.4 --eps=0.4 &
 
 # with both
 #python train_in.py --device=cuda  --dataroot=cardiac --method=admm_gc_size_in --data_aug=True --arch=enet --max_epoch=80 --save_dir=results/cardiac/gcsizeIN_enet_Daug_0.0 --eps=0.0 &
-#python train_in.py --device=cuda  --dataroot=cardiac --method=admm_gc_size_in --data_aug=False --arch=enet --max_epoch=80 --save_dir=results/cardiac/gcsizeIN_enet_0.0 --eps=0.0 &
+python train_in.py --device=cuda  --dataroot=cardiac --method=admm_gc_size_in --data_aug=False --arch=enet --max_epoch=80 --save_dir=results/cardiac/gcsizeIN_enet_0.0 --eps=0.0 &
 
 #python train_in.py --device=cuda  --dataroot=cardiac --method=admm_gc_size_in --data_aug=True --arch=enet --max_epoch=80 --save_dir=results/cardiac/gcsizeIN_enet_Daug_0.1 --eps=0.1 &
-#python train_in.py --device=cuda  --dataroot=cardiac --method=admm_gc_size_in --data_aug=False --arch=enet --max_epoch=80 --save_dir=results/cardiac/gcsizeIN_enet_0.1 --eps=0.1 &
+python train_in.py --device=cuda  --dataroot=cardiac --method=admm_gc_size_in --data_aug=False --arch=enet --max_epoch=80 --save_dir=results/cardiac/gcsizeIN_enet_0.1 --eps=0.1 &
 
 #python train_in.py --device=cuda  --dataroot=cardiac --method=admm_gc_size_in --data_aug=True --arch=enet --max_epoch=80 --save_dir=results/cardiac/gcsizeIN_enet_Daug_0.2 --eps=0.2 &
-#python train_in.py --device=cuda  --dataroot=cardiac --method=admm_gc_size_in --data_aug=False --arch=enet --max_epoch=80 --save_dir=results/cardiac/gcsizeIN_enet_0.2 --eps=0.2 &
+python train_in.py --device=cuda  --dataroot=cardiac --method=admm_gc_size_in --data_aug=False --arch=enet --max_epoch=80 --save_dir=results/cardiac/gcsizeIN_enet_0.2 --eps=0.2 &
 
 #python train_in.py --device=cuda  --dataroot=cardiac --method=admm_gc_size_in --data_aug=True --arch=enet --max_epoch=80 --save_dir=results/cardiac/gcsizeIN_enet_Daug_0.4 --eps=0.4 &
-#python train_in.py --device=cuda  --dataroot=cardiac --method=admm_gc_size_in --data_aug=False --arch=enet --max_epoch=80 --save_dir=results/cardiac/gcsizeIN_enet_0.4 --eps=0.4
+python train_in.py --device=cuda  --dataroot=cardiac --method=admm_gc_size_in --data_aug=False --arch=enet --max_epoch=80 --save_dir=results/cardiac/gcsizeIN_enet_0.4 --eps=0.4

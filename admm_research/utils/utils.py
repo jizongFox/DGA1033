@@ -8,14 +8,14 @@ import cv2, os
 from torchnet.meter import AverageValueMeter
 import copy
 from torchvision.utils import save_image, make_grid
-from  tqdm import tqdm
+from tqdm import tqdm
+
 use_gpu = True
 device = torch.device('cuda') if torch.cuda.is_available() and use_gpu else torch.device('cpu')
 
-tqdm_ = partial(tqdm, ncols=75,
+tqdm_ = partial(tqdm, ncols=175,
                 leave=False,
                 bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [' '{rate_fmt}{postfix}]')
-
 
 
 def colormap(n):
@@ -180,7 +180,7 @@ def set_boundary_term(g, nodeids, img, kernel_size, lumda, sigma):
         shifted_im = shift_matrix(pad_im, structure)
         weights_ = transfer_function(
             np.abs(pad_im - shifted_im)[padding_size:-padding_size, padding_size:-padding_size])
-        if lumda==0:
+        if lumda == 0:
             print()
 
         g.add_grid_edges(nodeids, structure=structure, weights=weights_, symmetric=False)
@@ -229,8 +229,8 @@ def graphcut_with_FG_seed_and_BG_dlation(image, weak_mask, full_mask, kernal_siz
     :param sigma:
     :return:
     '''
-    if weak_mask.sum()==0 or full_mask.sum()==0:
-        new_gamma= np.zeros(weak_mask.shape)
+    if weak_mask.sum() == 0 or full_mask.sum() == 0:
+        new_gamma = np.zeros(weak_mask.shape)
     else:
         unary1 = np.zeros(image.squeeze().shape)
         unary0 = np.zeros(unary1.shape)
@@ -330,7 +330,6 @@ from typing import Any, Callable, Iterable, List, Set, Tuple, TypeVar, Union
 A = TypeVar("A")
 B = TypeVar("B")
 T = TypeVar("T", Tensor, np.ndarray)
-
 
 
 def map_(fn: Callable[[A], B], iter: Iterable[A]) -> List[B]:

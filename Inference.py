@@ -49,8 +49,8 @@ def inference(args: argparse.Namespace) -> None:
     net: torch.nn.Module = get_arch(args.arch, {'num_classes': args.num_classes})
     net.load_state_dict(checkpoint['model'])
     net.to(device)
-    # net.train()
-    net.eval()
+    net.train()
+    # net.eval()
 
     ## build dataloader
     root_dir = get_dataset_root(args.dataset)
@@ -80,18 +80,14 @@ def save_images(imgs: torch.Tensor, preds: torch.Tensor, gts: torch.Tensor, path
         output_zi_path: pathlib.PosixPath = Path(args.checkpoint).parents[0] / 'visualize_zoomin'
         output_zi_path.mkdir(exist_ok=True, parents=True)
 
-    # paired_data = zip(imgs, preds, gts)
-    # from multiprocessing import Pool
-    # from functools import partial
-    # save_image_ = partial(save_image, args=args)
-    # figs = Pool().starmap(save_image_,paired_data)
-
     for img, pred, gt, path in zip(imgs, preds, gts, paths):
         output_name = Path(path).name
         fig, fig_zoomin = save_image(img, pred, gt, args)
         fig.savefig(output_path / output_name, bbox_inches='tight', pad_inches=0)
+        plt.close(fig)
         if args.zoomin:
             fig_zoomin.savefig(output_zi_path / output_name, bbox_inches='tight', pad_inches=0)
+            plt.close(fig_zoomin)
 
 
 def save_image(img: torch.Tensor, pred: torch.Tensor, gt: torch.Tensor, args: argparse.Namespace):
@@ -124,7 +120,8 @@ def draw_figure(img: np.ndarray, pred: np.ndarray, gt: np.ndarray, args: argpars
     gt: np.ndarray = np.array(Image.fromarray(gt * 255.0).resize(resize)) / 255.0
     pred: np.ndarray = np.array(Image.fromarray(pred * 255.0).resize(resize)) / 255.0
 
-    fig = plt.figure(0)
+    # You cannot point out the number here.
+    fig = plt.figure()
     fig.clf()
     ax = fig.add_subplot(111)
     ax.imshow(img, cmap='gray')

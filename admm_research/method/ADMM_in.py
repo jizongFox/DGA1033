@@ -315,7 +315,7 @@ class ADMM_size_inequality(AdmmBase):
             CE_loss = criterion(self.score, self.weak_gt.squeeze(1).long())
             constraint_loss = self.size_constrain.return_L2_loss()  # return L2 loss based on current S and Y
             loss = constraint_loss + CE_loss
-            print('loss: CEloss:{},Constraintloss:{}'.format(CE_loss.item(), constraint_loss.item()))
+            # print('loss: CEloss:{},Constraintloss:{}'.format(CE_loss.item(), constraint_loss.item()))
             self.optim.zero_grad()
             loss.backward()
             self.optim.step()

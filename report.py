@@ -25,7 +25,7 @@ def main(args: argparse.Namespace) -> None:
 
     fig = plt.figure()
     for axis_, s in zip(args.axis, styles):
-        # plt.clf()
+        plt.clf()
         for filepath, c in zip(filepaths, colors):
             folername_ = filepath.parent.name
             metrics_file = pd.read_csv(filepath)
@@ -41,6 +41,8 @@ def main(args: argparse.Namespace) -> None:
                 x, y = x, value
 
             plt.plot(x, y, label=value_name + ' ' + folername_, linestyle=s)
+            print(f'{filepath}, {value_name}: {np.array(value).max()}')
+
         if not args.draw_all:
             plt.title(value_name)
             plt.grid()

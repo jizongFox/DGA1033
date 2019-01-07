@@ -100,12 +100,12 @@ def input_args():
 def parse_results(in_path):
     file = pd.read_csv(in_path, index_col=0)
     sorted_file = file.sort_values(by=['fd'], ascending=False)
-    print(sorted_file.head())
+    print(sorted_file.head(30))
     return {k: list(v.values())[0] for k, v in sorted_file.head(1).to_dict().items()}
 
 
 if __name__ == '__main__':
-    received_args = input_args()
-    main(received_args)
+    # received_args = input_args()
+    # main(received_args)
     parse_results('parameterSearch/cardiac.csv')
     parse_results('parameterSearch/prostate.csv')

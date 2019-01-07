@@ -52,9 +52,9 @@ class ADMM_Trainer(Base):
     def setup_arch_flags(cls):
         super().setup_arch_flags()
         flags.DEFINE_integer('max_epoch', default=200, help='number of max_epoch')
-        flags.DEFINE_multi_integer('milestones', default=[20, 40, 60, 80, 100, 120, 140, 160],
+        flags.DEFINE_multi_integer('milestones', default=[10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 140, 160],
                                    help='miletones for lr_decay')
-        flags.DEFINE_float('gamma', default=0.9, help='gamma for lr_decay')
+        flags.DEFINE_float('gamma', default=0.85, help='gamma for lr_decay')
         flags.DEFINE_string('device', default='cpu', help='cpu or cuda?')
         flags.DEFINE_integer('printfreq', default=5, help='how many output for an epoch')
         flags.DEFINE_integer('num_admm_innerloop', default=2, help='how many output for an epoch')
