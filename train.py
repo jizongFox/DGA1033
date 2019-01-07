@@ -24,7 +24,7 @@ def check_consistance(hparams):
         assert hparams['loss']=='cross_entropy'
         assert hparams['num_admm_innerloop']==1
     else:
-        assert hparams['loss']=='partial_ce'
+        assert hparams['loss'] in ('partial_ce','neg_partial_ce')
         assert hparams['num_admm_innerloop']>1,hparams['num_admm_innerloop']
         assert hparams['batch_size']==1,hparams['batch_size']
 
