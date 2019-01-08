@@ -10,7 +10,7 @@ import argparse
 
 def main(args: argparse.Namespace) -> None:
     colors = ["c", "r", "g", "b", "m", 'y', 'k', 'chartreuse', 'coral']
-    styles = ['--', '-.', ':']
+    styles = [':', '--', '-.', ]
     assert args.folders.__len__() <= colors.__len__()
     assert args.axis.__len__() <= styles.__len__()
     assert args.y_lim.__len__() == 2
@@ -34,8 +34,10 @@ def main(args: argparse.Namespace) -> None:
             value = metrics_file.iloc[:, axis_].tolist()
             value_name = metrics_file.columns[axis_]
             if args.interpolate:
-                new_x = np.linspace(0, len(x) - 1, (len(x) - 1) * 5)
-                new_value = spline(x, np.array(value), new_x)
+                new_x = np.linspace(0, len(x) - 1, (len(x) - 1) * 8)
+                new_value = spline(x, np.array(value), new_x,3)
+                # assert new_value.min() == np.array(value).min()
+                # assert new_value.max() == np.array(value).max()
                 x, y = new_x, new_value
             else:
                 x, y = x, value
@@ -53,7 +55,7 @@ def main(args: argparse.Namespace) -> None:
 
             if args.show:
                 plt.show()
-            fig.savefig(str(filepath.parents[1]) + '/' + value_name + '.png')
+            fig.savefig(str(filepath.parents[1]) + '/' + args.postfix + '_' + value_name + '.png')
 
     if args.draw_all:
         plt.title('all')
@@ -65,7 +67,7 @@ def main(args: argparse.Namespace) -> None:
 
         if args.show:
             plt.show()
-        fig.savefig(str(filepath.parents[1]) + '/' + 'all.png')
+        fig.savefig(str(filepath.parents[1]) + '/' + args.postfix + '_' + 'all.png')
 
 
 def get_args() -> argparse.Namespace:
@@ -77,6 +79,7 @@ def get_args() -> argparse.Namespace:
     choices.add_argument('--show', action='store_true')
     choices.add_argument('--y_lim', type=float, nargs='*', help='[y_min, y_max]', default=[0, 0])
     choices.add_argument('--draw_all', action='store_true', help='draw all together')
+    choices.add_argument('--postfix', type=str, default='', required=True)
     args = choices.parse_args()
     print(args)
     return args
