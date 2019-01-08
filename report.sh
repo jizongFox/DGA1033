@@ -11,7 +11,6 @@ archive/results/cardiac/FS_enet \
 --file \
 metrics.csv \
 --axis \
-1 \
 2 \
 3 \
 --y_lim \
@@ -30,7 +29,6 @@ archive/results/cardiac/FS_enet \
 --file \
 metrics.csv \
 --axis \
-1 \
 2 \
 3 \
 --y_lim \
@@ -50,7 +48,6 @@ archive/results/cardiac/FS_enet \
 --file \
 metrics.csv \
 --axis \
-1 \
 2 \
 3 \
 --y_lim \
@@ -69,7 +66,6 @@ archive/results/cardiac/FS_enet \
 --file \
 metrics.csv \
 --axis \
-1 \
 2 \
 3 \
 --y_lim \

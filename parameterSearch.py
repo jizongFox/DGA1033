@@ -57,10 +57,10 @@ def test_one(args):
 
 
 def main(user_choice):
-    sigmas = [0.001, 0.01, 0.02, 0.03, 0.1]
-    kernal_sizes = [3, 5, 7]
-    lamdas = [0, 0.1, 1, 2, 5, 10]
-    dilation_levels = [0, 3, 5, 7, 9, 12, 14]
+    sigmas = [ 0.0005, 0.001, 0.005, 0.01, 0.02]
+    kernal_sizes = [3]
+    lamdas = [0,0.0001, 0.0005, 0.001, 0.005, 0.01]
+    dilation_levels = [4, 5, 6, 7]
     if user_choice.debug:
         sigmas = [0.001, ]
         kernal_sizes = [3]
@@ -105,7 +105,7 @@ def parse_results(in_path):
 
 
 if __name__ == '__main__':
-    # received_args = input_args()
-    # main(received_args)
-    parse_results('parameterSearch/cardiac.csv')
-    parse_results('parameterSearch/prostate.csv')
+    received_args = input_args()
+    main(received_args)
+    # parse_results('parameterSearch/cardiac.csv')
+    # parse_results('parameterSearch/prostate.csv')
