@@ -108,6 +108,7 @@ class MedicalImageDataset(Dataset):
 
     def __getitem__(self, index):
         img_path, mask_path, mask_weak_path = self.imgs[index]
+        assert Path(img_path).stem==Path(mask_path).stem==Path(mask_weak_path).stem
         img = Image.open(img_path).convert('L')  # .convert('RGB')
         mask = Image.open(mask_path)  # .convert('RGB')
         mask_weak = Image.open(mask_weak_path).convert('L')

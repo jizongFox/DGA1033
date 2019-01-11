@@ -133,7 +133,7 @@ class Colorize:
                 color_image[1][mask] = self.cmap[label][1]
                 color_image[2][mask] = self.cmap[label][2]
             except:
-                print(1)
+                pass
         return color_image
 
 
@@ -181,7 +181,7 @@ def set_boundary_term(g, nodeids, img, kernel_size, lumda, sigma):
         weights_ = transfer_function(
             np.abs(pad_im - shifted_im)[padding_size:-padding_size, padding_size:-padding_size])
         if lumda == 0:
-            print()
+            pass
 
         g.add_grid_edges(nodeids, structure=structure, weights=weights_, symmetric=False)
 

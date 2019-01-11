@@ -5,6 +5,10 @@ from admm_research.utils import graphcut_with_FG_seed_and_BG_dlation, AverageMet
 from multiprocessing import Pool
 import argparse, os
 from pathlib import Path
+from skimage.io import imsave
+from functools import partial
+import warnings
+from admm_research.utils import dice_loss_numpy
 
 
 def mmp(function, args):
@@ -26,47 +30,70 @@ class args:
         return cls
 
 
-def build_datasets(dataset_name):
+def build_datasets(dataset_name, foldername):
     root = get_dataset_root(dataset_name)
-    trainset = MedicalImageDataset(root, 'train', transform=segment_transform((256, 256)), augment=None)
-    valset = MedicalImageDataset(root, 'val', transform=segment_transform((256, 256)), augment=None)
+    trainset = MedicalImageDataset(root, 'train', transform=segment_transform((256, 256)), augment=None,
+                                   foldername=foldername)
     trainLoader = DataLoader(trainset, batch_size=1)
-    valLoader = DataLoader(valset, batch_size=1)
-    return trainLoader, valLoader
+    return trainLoader, None
 
 
-def test_one(args):
-    device = torch.device('cpu')
-
-    train_loader, val_loader = build_datasets(args.name)
+def test_one(args, userchoice):
+    print(f'>> args: {vars(args)}')
+    args_name = '_'.join(['%s_%s' % (k, str(v)) for k, v in vars(args).items()])
+    train_loader, _ = build_datasets(args.name, userchoice.folder_name)
     fd_meter = AverageMeter()
     train_loader_ = tqdm_(enumerate(train_loader))
     # train_loader_ = train_loader
     for i, (img, gt, wgt, path) in train_loader_:
-        if gt.sum() == 0 or wgt.sum() == 0:
-            continue
-        img, gt, wgt = img.to(device), gt.to(device), wgt.to(device)
-        assert gt.max() == wgt.max()
+
         gamma, [_, fd] = graphcut_with_FG_seed_and_BG_dlation(img.cpu().numpy().squeeze(), wgt.cpu().numpy().squeeze(),
                                                               gt.cpu().numpy().squeeze(), args.kernal_size, args.lamda,
                                                               args.sigma,
                                                               args.dilation_level)
+
         fd_meter.update(fd)
+        if gamma.max() > 0:
+            pass
+        save_img(gamma, userchoice.output_dir, args.name, userchoice.folder_name, args_name, path[0])
+
         train_loader_.set_postfix({'fd': fd_meter.avg})
 
     return {**{k: v for k, v in vars(args).items() if k.find('__') < 0}, **{'fd': fd_meter.avg}}
 
 
+def baseline(userchoice):
+    device = torch.device('cpu')
+    train_loader, _ = build_datasets(userchoice.name, userchoice.folder_name)
+    fd_meter = AverageMeter()
+    train_loader_ = tqdm_(enumerate(train_loader))
+    # train_loader_ = train_loader
+    for i, (img, gt, wgt, path) in train_loader_:
+        img, gt, wgt = img.to(device), gt.to(device), wgt.to(device)
+        [_, df] = dice_loss_numpy(wgt.data.numpy(), gt.data.numpy())
+        fd_meter.update(df)
+
+    return fd_meter.avg
+
+
+def save_img(gamma, output_dir, dataname, folder, args_name, path):
+    save_name = Path(output_dir, dataname, folder, args_name, Path(path).name)
+    save_name.parent.mkdir(parents=True, exist_ok=True)
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', category=UserWarning)
+        imsave(save_name, gamma)
+
+
 def main(user_choice):
-    sigmas = [0.0005, 0.001, 0.01, 0.1, 1, 10, 100]  ## no_pairwise term, -> uniform pairwise term
+    sigmas = [1000]  ## no_pairwise term, -> uniform pairwise term
     kernal_sizes = [3, 5]
-    lamdas = [0, 0.0001, 0.001, 0.01, 1]
-    dilation_levels = [4, 5, 6, 7]
+    lamdas = [0, 1e-8, 1e-5, ]
+    dilation_levels = [5]
     if user_choice.debug:
         sigmas = [0.001, ]
         kernal_sizes = [3]
-        lamdas = [0, 0.1]
-        dilation_levels = [0, 5, 7]
+        lamdas = [1]
+        dilation_levels = [5]
 
     config_list = []
     for s in sigmas:
@@ -79,13 +106,19 @@ def main(user_choice):
     print(f'>> {config_list.__len__()} are found to test, the results are saved in {user_choice.output_dir}.')
 
     args_list = [args().update(d) for d in config_list]
-    results = mmp(test_one, args_list)
+    test_one_ = partial(test_one, userchoice=user_choice)
+    b_line = baseline(user_choice)
+    print('>> baseline:%.4f' % b_line)
+    results = mmp(test_one_, args_list)
+
+    results = [{**result, **{'baseline': b_line}} for result in results]
+
     results = pd.DataFrame(results, columns=results[0].keys())
     results.index.name = 'opt'
-    outdir = Path(user_choice.output_dir)
+    outdir = Path(user_choice.output_dir, user_choice.name, user_choice.folder_name)
     outdir.mkdir(exist_ok=True, parents=True)
-    results.to_csv(os.path.join(outdir.name, '%s.csv' % user_choice.name))
-    parse_results(os.path.join(outdir.name, '%s.csv' % user_choice.name))
+    results.to_csv(os.path.join(str(outdir), '%s.csv' % user_choice.name))
+    parse_results(os.path.join(str(outdir), '%s.csv' % user_choice.name))
 
 
 def input_args():
