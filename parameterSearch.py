@@ -41,6 +41,7 @@ def test_one(args):
     train_loader, val_loader = build_datasets(args.name)
     fd_meter = AverageMeter()
     train_loader_ = tqdm_(enumerate(train_loader))
+    # train_loader_ = train_loader
     for i, (img, gt, wgt, path) in train_loader_:
         if gt.sum() == 0 or wgt.sum() == 0:
             continue
@@ -57,9 +58,9 @@ def test_one(args):
 
 
 def main(user_choice):
-    sigmas = [ 0.0005, 0.001, 0.005, 0.01, 0.02]
-    kernal_sizes = [3]
-    lamdas = [0,0.0001, 0.0005, 0.001, 0.005, 0.01]
+    sigmas = [0.0005, 0.001, 0.01, 0.1, 1, 10, 100]  ## no_pairwise term, -> uniform pairwise term
+    kernal_sizes = [3, 5]
+    lamdas = [0, 0.0001, 0.001, 0.01, 1]
     dilation_levels = [4, 5, 6, 7]
     if user_choice.debug:
         sigmas = [0.001, ]
@@ -105,7 +106,5 @@ def parse_results(in_path):
 
 
 if __name__ == '__main__':
-    # received_args = input_args()
-    # main(received_args)
-    # parse_results('parameterSearch/cardiac.csv')
-    parse_results('parameterSearch/prostate2.csv')
+    received_args = input_args()
+    main(received_args)
