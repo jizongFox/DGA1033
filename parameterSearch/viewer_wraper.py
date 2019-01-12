@@ -13,7 +13,6 @@ def get_args() -> argparse.Namespace:
     parser.add_argument('--img_source', type=str, required=True)
     parser.add_argument('--lamda_all',action='store_true',help='choose all lambda, including 0')
     args = parser.parse_args()
-    # print(args)
     return args
 
 

@@ -235,9 +235,10 @@ def graphcut_with_FG_seed_and_BG_dlation(image, weak_mask, full_mask, kernal_siz
         unary1 = np.zeros(image.squeeze().shape)
         unary0 = np.zeros(unary1.shape)
         unary1[(weak_mask == 1).astype(bool)] = -np.inf
-        kernel = np.ones((5, 5), np.uint8)
+        kernel = np.ones((kernal_size, kernal_size), np.uint8)
         dilation = cv2.dilate(weak_mask.astype(np.float32), kernel, iterations=dilation_level)
         unary0[(dilation != 1).astype(bool)] = - np.inf
+        # unary1[(dilation != 1).astype(bool)] = +np.inf
 
         g = maxflow.Graph[float](0, 0)
         # Add the nodes.

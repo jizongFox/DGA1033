@@ -87,7 +87,7 @@ def main(user_choice):
     dilation_levels = user_choice.dilation_levels
     if user_choice.debug:
         sigmas = [0.001, ]
-        kernal_sizes = [3]
+        kernal_sizes = [5]
         lamdas = [1]
         dilation_levels = [5]
 
