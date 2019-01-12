@@ -16,7 +16,7 @@ from matplotlib.widgets import Button
 
 
 ## math the pattern and the string
-def extract(pattern: str, string: str) -> str:
+def extract(pattern, string):
     try:
         return re.match(pattern, string).group(1)
     except AttributeError:  # id not found

@@ -30,10 +30,10 @@ class args:
         return cls
 
 
-def build_datasets(dataset_name, foldername):
+def build_datasets(dataset_name, foldername, equalize):
     root = get_dataset_root(dataset_name)
     trainset = MedicalImageDataset(root, 'train', transform=segment_transform((256, 256)), augment=None,
-                                   foldername=foldername)
+                                   foldername=foldername, equalize=equalize)
     trainLoader = DataLoader(trainset, batch_size=1)
     return trainLoader, None
 
@@ -41,33 +41,29 @@ def build_datasets(dataset_name, foldername):
 def test_one(args, userchoice):
     print(f'>> args: {vars(args)}')
     args_name = '_'.join(['%s_%s' % (k, str(v)) for k, v in vars(args).items()])
-    train_loader, _ = build_datasets(args.name, userchoice.folder_name)
+    train_loader, _ = build_datasets(args.name, userchoice.folder_name, userchoice.equalize)
     fd_meter = AverageMeter()
     train_loader_ = tqdm_(enumerate(train_loader))
-    # train_loader_ = train_loader
     for i, (img, gt, wgt, path) in train_loader_:
-
         gamma, [_, fd] = graphcut_with_FG_seed_and_BG_dlation(img.cpu().numpy().squeeze(), wgt.cpu().numpy().squeeze(),
                                                               gt.cpu().numpy().squeeze(), args.kernal_size, args.lamda,
                                                               args.sigma,
                                                               args.dilation_level)
 
         fd_meter.update(fd)
-        if gamma.max() > 0:
-            pass
+
         save_img(gamma, userchoice.output_dir, args.name, userchoice.folder_name, args_name, path[0])
 
         train_loader_.set_postfix({'fd': fd_meter.avg})
 
-    return {**{k: v for k, v in vars(args).items() if k.find('__') < 0}, **{'fd': fd_meter.avg}}
+    return {**{k: v for k, v in vars(args).items() if k.find('__') < 0}, **{'fd': fd_meter.avg, 'arg_name': args_name}}
 
 
 def baseline(userchoice):
     device = torch.device('cpu')
-    train_loader, _ = build_datasets(userchoice.name, userchoice.folder_name)
+    train_loader, _ = build_datasets(userchoice.name, userchoice.folder_name, userchoice.equalize)
     fd_meter = AverageMeter()
     train_loader_ = tqdm_(enumerate(train_loader))
-    # train_loader_ = train_loader
     for i, (img, gt, wgt, path) in train_loader_:
         img, gt, wgt = img.to(device), gt.to(device), wgt.to(device)
         [_, df] = dice_loss_numpy(wgt.data.numpy(), gt.data.numpy())
@@ -85,10 +81,10 @@ def save_img(gamma, output_dir, dataname, folder, args_name, path):
 
 
 def main(user_choice):
-    sigmas = [1000]  ## no_pairwise term, -> uniform pairwise term
-    kernal_sizes = [3, 5]
-    lamdas = [0, 1e-8, 1e-5, ]
-    dilation_levels = [5]
+    sigmas = user_choice.sigmas
+    kernal_sizes = user_choice.kernel_sizes
+    lamdas = user_choice.lambdas
+    dilation_levels = user_choice.dilation_levels
     if user_choice.debug:
         sigmas = [0.001, ]
         kernal_sizes = [3]
@@ -108,7 +104,7 @@ def main(user_choice):
     args_list = [args().update(d) for d in config_list]
     test_one_ = partial(test_one, userchoice=user_choice)
     b_line = baseline(user_choice)
-    print('>> baseline:%.4f' % b_line)
+    # print('>> baseline:%.4f' % b_line)
     results = mmp(test_one_, args_list)
 
     results = [{**result, **{'baseline': b_line}} for result in results]
@@ -118,7 +114,7 @@ def main(user_choice):
     outdir = Path(user_choice.output_dir, user_choice.name, user_choice.folder_name)
     outdir.mkdir(exist_ok=True, parents=True)
     results.to_csv(os.path.join(str(outdir), '%s.csv' % user_choice.name))
-    parse_results(os.path.join(str(outdir), '%s.csv' % user_choice.name))
+    return parse_results(os.path.join(str(outdir), '%s.csv' % user_choice.name))
 
 
 def input_args():
@@ -127,6 +123,11 @@ def input_args():
     parser.add_argument('--folder_name', type=str, default='WeaklyAnnotations')
     parser.add_argument('--output_dir', type=str, required=True)
     parser.add_argument('--debug', action='store_true', help='help with debug')
+    parser.add_argument('--sigmas', type=float, nargs='+', help='sigmal range', required=True)
+    parser.add_argument('--lambdas', type=float, nargs='+', help='lambda range', required=True)
+    parser.add_argument('--kernel_sizes', type=int, nargs='+', help='lambda range', required=True)
+    parser.add_argument('--dilation_levels', type=int, nargs='+', help='dilation_levels', required=True)
+    parser.add_argument('--equalize', action='store_true')
     args_ = parser.parse_args()
     return args_
 
@@ -134,8 +135,8 @@ def input_args():
 def parse_results(in_path):
     file = pd.read_csv(in_path, index_col=0)
     sorted_file = file.sort_values(by=['fd'], ascending=False)
-    print(sorted_file.head(100))
-    return {k: list(v.values())[0] for k, v in sorted_file.head(1).to_dict().items()}
+    print(sorted_file.head(5))
+    # return {k: list(v.values())[0] for k, v in sorted_file.head(1).to_dict().items()}
 
 
 if __name__ == '__main__':
