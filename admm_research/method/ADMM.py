@@ -269,14 +269,14 @@ class AdmmGCSize(AdmmSize):
     @classmethod
     def setup_arch_flags(cls):
         super().setup_arch_flags()
-        flags.DEFINE_float('lamda', default=1,
+        flags.DEFINE_float('lamda', default=0.01,
                            help='balance between the unary and the neighor term')
-        flags.DEFINE_float('sigma', default=0.02, help='Smooth the neigh term')
+        flags.DEFINE_float('sigma', default=0.001, help='Smooth the neigh term')
         flags.DEFINE_integer('kernelsize', default=5,
                              help='kernelsize of the gc')
-        flags.DEFINE_integer('dilation_level', default=7,
+        flags.DEFINE_integer('dilation_level', default=6,
                              help='iterations to execute the dilation operation')
-        flags.DEFINE_integer('stop_dilation_epoch', default=100,
+        flags.DEFINE_integer('stop_dilation_epoch', default=70,
                              help='stop dilation operation at this epoch')
 
     def __init__(self, torchnet: nn.Module, hparams: dict) -> None:

@@ -14,8 +14,8 @@ torch.set_num_threads(1)
 def build_datasets(hparams):
     root_dir = get_dataset_root(hparams['dataroot'])
     train_dataset = MedicalImageDataset(root_dir, 'train', transform=segment_transform((256, 256)),
-                                        augment=augment if hparams['data_aug'] else None)
-    val_dataset = MedicalImageDataset(root_dir, 'val', transform=segment_transform((256, 256)), augment=None)
+                                        augment=augment if hparams['data_aug'] else None, equalize=hparams['data_equ'])
+    val_dataset = MedicalImageDataset(root_dir, 'val', transform=segment_transform((256, 256)), augment=None, equalize=hparams['data_equ'])
 
     return train_dataset, val_dataset
 
@@ -49,6 +49,7 @@ if __name__ == '__main__':
     flags.DEFINE_string('dataroot', default='cardiac', help='the name of the dataset')
     flags.DEFINE_boolean('data_aug', default=False, help='data_augmentation')
     flags.DEFINE_string('loss',default='partial_ce',help='loss used in admm loop')
+    flags.DEFINE_boolean('data_equ',default=False, help='data equalization')
     # AdmmSize.setup_arch_flags()
     # AdmmGCSize.setup_arch_flags()
     # ADMM_size_inequality.setup_arch_flags()

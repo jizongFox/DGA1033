@@ -1,6 +1,7 @@
 from admm_research import LOGGER, flags, app, config_logger
 from admm_research.dataset import MedicalImageDataset, segment_transform, augment, get_dataset_root
-from admm_research.method import get_method, get_method_class, AdmmSize, AdmmGCSize, ADMM_size_inequality,fullysupervised,ADMM_reg_size_inequality
+from admm_research.method import get_method, get_method_class, AdmmSize, AdmmGCSize, ADMM_size_inequality, \
+    fullysupervised, ADMM_reg_size_inequality
 from admm_research.loss import get_loss_fn
 from admm_research.arch import get_arch
 from admm_research.trainer import ADMM_Trainer
@@ -11,22 +12,26 @@ import warnings
 warnings.filterwarnings('ignore')
 torch.set_num_threads(1)
 
+
 def build_datasets(hparams):
     root_dir = get_dataset_root(hparams['dataroot'])
     train_dataset = MedicalImageDataset(root_dir, 'train', transform=segment_transform((256, 256)),
-                                        augment=augment if hparams['data_aug'] else None)
-    val_dataset = MedicalImageDataset(root_dir, 'val', transform=segment_transform((256, 256)), augment=None)
+                                        augment=augment if hparams['data_aug'] else None, equalize=hparams['data_equ'])
+    val_dataset = MedicalImageDataset(root_dir, 'val', transform=segment_transform((256, 256)), augment=None,
+                                      equalize=hparams['data_equ'])
 
     return train_dataset, val_dataset
 
+
 def check_consistance(hparams):
-    if hparams['method']=='fullysupervised':
-        assert hparams['loss']=='cross_entropy'
-        assert hparams['num_admm_innerloop']==1
+    if hparams['method'] == 'fullysupervised':
+        assert hparams['loss'] == 'cross_entropy'
+        assert hparams['num_admm_innerloop'] == 1
     else:
-        assert hparams['loss'] in ('partial_ce','neg_partial_ce')
-        assert hparams['num_admm_innerloop']>1,hparams['num_admm_innerloop']
-        assert hparams['batch_size']==1,hparams['batch_size']
+        assert hparams['loss'] in ('partial_ce', 'neg_partial_ce')
+        assert hparams['num_admm_innerloop'] > 1, hparams['num_admm_innerloop']
+        assert hparams['batch_size'] == 1, hparams['batch_size']
+
 
 def run(argv):
     del argv
@@ -48,7 +53,8 @@ if __name__ == '__main__':
     torch.manual_seed(41)
     flags.DEFINE_string('dataroot', default='cardiac', help='the name of the dataset')
     flags.DEFINE_boolean('data_aug', default=False, help='data_augmentation')
-    flags.DEFINE_string('loss',default='partial_ce',help='loss used in admm loop')
+    flags.DEFINE_string('loss', default='partial_ce', help='loss used in admm loop')
+    flags.DEFINE_boolean('data_equ', default=False, help='data equalization')
     # AdmmSize.setup_arch_flags()
     AdmmGCSize.setup_arch_flags()
     # ADMM_size_inequality.setup_arch_flags()
