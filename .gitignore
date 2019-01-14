@@ -13,3 +13,6 @@ admm_research.egg-info/*
 admm_research/__init__.pyc
 test
 log*
+
+parameterSearch/*.zip
+parameterSearch/GS_prostate_equalize_2check/
