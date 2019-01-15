@@ -74,11 +74,11 @@ echo "method_postfix" $method_postfix
 if [[ $size_run == "True"  ]];
 then
 
-python $train_main".py" --device=cuda  --dataroot=$dataset --data_equ=$dataequ --method=admm_size$method_postfix --data_aug=$dataaug --arch=cnet  --max_epoch=$max_epoch --save_dir=results/$dataset/$train_main"_size_cnet_Daug_"$dataaug"_0.0" --eps=0.0 &
+python $train_main".py" --device=cuda  --dataroot=$dataset --data_equ=$dataequ --method=admm_size$method_postfix --data_aug=$dataaug --arch=cnet  --max_epoch=$max_epoch --save_dir=results/$dataset/$train_main"_size_cnet_Daug_"$dataaug"_0.0" --eps=0.0
 
-python $train_main".py" --device=cuda  --dataroot=$dataset --data_equ=$dataequ --method=admm_size$method_postfix --data_aug=$dataaug --arch=cnet --max_epoch=$max_epoch --save_dir=results/$dataset/$train_main"_size_cnet_Daug_"$dataaug"_0.1"  --eps=0.1 &
+python $train_main".py" --device=cuda  --dataroot=$dataset --data_equ=$dataequ --method=admm_size$method_postfix --data_aug=$dataaug --arch=cnet --max_epoch=$max_epoch --save_dir=results/$dataset/$train_main"_size_cnet_Daug_"$dataaug"_0.1"  --eps=0.1
 
-python $train_main".py" --device=cuda  --dataroot=$dataset --data_equ=$dataequ --method=admm_size$method_postfix --data_aug=$dataaug --arch=cnet --max_epoch=$max_epoch --save_dir=results/$dataset/$train_main"_size_cnet_Daug_"$dataaug"_0.2" --eps=0.2 &
+python $train_main".py" --device=cuda  --dataroot=$dataset --data_equ=$dataequ --method=admm_size$method_postfix --data_aug=$dataaug --arch=cnet --max_epoch=$max_epoch --save_dir=results/$dataset/$train_main"_size_cnet_Daug_"$dataaug"_0.2" --eps=0.2
 
 python $train_main".py" --device=cuda  --dataroot=$dataset --data_equ=$dataequ --method=admm_size$method_postfix --data_aug=$dataaug --arch=cnet --max_epoch=$max_epoch --save_dir=results/$dataset/$train_main"_size_cnet_Daug_"$dataaug"_0.4" --eps=0.4
 else
@@ -91,11 +91,11 @@ fi
 if [[ $gc_size_run == "True" ]];
 then
 
-python $train_main".py" --device=cuda  --dataroot=$dataset --method=admm_gc_size$method_postfix --data_aug=$dataaug --arch=cnet --max_epoch=$max_epoch --save_dir=results/$dataset/$train_main"_gcsize_cnet_Daug_"$dataaug"_0.0" --eps=0.0 &
+python $train_main".py" --device=cuda  --dataroot=$dataset --method=admm_gc_size$method_postfix --data_aug=$dataaug --arch=cnet --max_epoch=$max_epoch --save_dir=results/$dataset/$train_main"_gcsize_cnet_Daug_"$dataaug"_0.0" --eps=0.0
 
-python $train_main".py" --device=cuda  --dataroot=$dataset --method=admm_gc_size$method_postfix --data_aug=$dataaug --arch=cnet --max_epoch=$max_epoch --save_dir=results/$dataset/$train_main"_gcsize_cnet_Daug_"$dataaug"_0.1"  --eps=0.1 &
+python $train_main".py" --device=cuda  --dataroot=$dataset --method=admm_gc_size$method_postfix --data_aug=$dataaug --arch=cnet --max_epoch=$max_epoch --save_dir=results/$dataset/$train_main"_gcsize_cnet_Daug_"$dataaug"_0.1"  --eps=0.1
 
-python $train_main".py" --device=cuda  --dataroot=$dataset --method=admm_gc_size$method_postfix --data_aug=$dataaug --arch=cnet --max_epoch=$max_epoch --save_dir=results/$dataset/$train_main"_gcsize_cnet_Daug_"$dataaug"_0.2" --eps=0.2 &
+python $train_main".py" --device=cuda  --dataroot=$dataset --method=admm_gc_size$method_postfix --data_aug=$dataaug --arch=cnet --max_epoch=$max_epoch --save_dir=results/$dataset/$train_main"_gcsize_cnet_Daug_"$dataaug"_0.2" --eps=0.2
 
 python $train_main".py" --device=cuda  --dataroot=$dataset --method=admm_gc_size$method_postfix --data_aug=$dataaug --arch=cnet --max_epoch=$max_epoch --save_dir=results/$dataset/$train_main"_gcsize_cnet_Daug_"$dataaug"_0.4" --eps=0.4
 
