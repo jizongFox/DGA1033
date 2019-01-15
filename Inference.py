@@ -35,7 +35,7 @@ def get_args() -> argparse.Namespace:
 
 def inference(args: argparse.Namespace) -> None:
     ## load model
-    assert args.dataset in ('cardiac', 'promise')
+    assert args.dataset in ('cardiac', 'prostate')
     checkpoint_path = Path(args.checkpoint)
     assert checkpoint_path.exists(), f'Checkpoint given {args.checkpoint} does not exisit.'
     device: torch.device = torch.device('cuda' if torch.cuda.is_available() and not args.cpu else 'cpu')
@@ -49,8 +49,8 @@ def inference(args: argparse.Namespace) -> None:
     net: torch.nn.Module = get_arch(args.arch, {'num_classes': args.num_classes})
     net.load_state_dict(checkpoint['model'])
     net.to(device)
-    net.train()
-    # net.eval()
+    # net.train()
+    net.eval()
 
     ## build dataloader
     root_dir = get_dataset_root(args.dataset)

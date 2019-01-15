@@ -123,11 +123,11 @@ class AdmmBase(ABC):
         b_dice_meter = AverageMeter()
         f_dice_meter = AverageMeter()
         threeD_dice = AverageMeter()
-        # self.torchnet.eval()
+        self.torchnet.eval()
         datalaoder_original_state = dataloader.dataset.training
         dataloader.dataset.set_mode('eval')
         assert dataloader.dataset.training == ModelMode.EVAL
-        assert self.torchnet.training == True
+        # assert self.torchnet.training == True
 
         with torch.no_grad():
 
