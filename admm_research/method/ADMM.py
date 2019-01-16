@@ -107,14 +107,16 @@ class AdmmBase(ABC):
         plt.subplot(1, 1, 1)
         plt.imshow(self.img[0].cpu().data.numpy().squeeze(), cmap='gray')
 
-        plt.contour(self.weak_gt.squeeze().cpu().data.numpy(), level=[0], colors="yellow", alpha=0.2, linewidth=0.001,
+        plt.contour(self.weak_gt.squeeze().cpu().data.numpy(), level=[0], colors="yellow", alpha=0.2, linewidth=0.001, linestyles= 'dashed',
                     label='GT')
-        plt.contour(self.gt.squeeze().cpu().data.numpy(), level=[0], colors="yellow", alpha=0.2, linewidth=0.001,
+        plt.contour(self.gt.squeeze().cpu().data.numpy(), level=[0], colors="yellow", alpha=0.2, linewidth=0.001, linestyles = 'dashed',
                     label='GT')
-        if name is not None:
-            plt.contour(getattr(self, name), level=[0], colors="red", alpha=0.2, linewidth=0.001, label=name)
         plt.contour(pred2segmentation(self.score).squeeze().cpu().data.numpy(), level=[0],
                     colors="green", alpha=0.2, linewidth=0.001, label='CNN')
+
+        if name is not None:
+            plt.contour(getattr(self, name), level=[0], colors="red", alpha=0.2, linewidth=0.001, linestyles = 'dashed',label=name)
+
         plt.title(name)
         plt.show(block=False)
         plt.pause(0.01)
@@ -127,8 +129,6 @@ class AdmmBase(ABC):
         datalaoder_original_state = dataloader.dataset.training
         dataloader.dataset.set_mode('eval')
         assert dataloader.dataset.training == ModelMode.EVAL
-        # assert self.torchnet.training == True
-
         with torch.no_grad():
 
             for i, (image, mask, weak_mask, pathname) in enumerate(dataloader):
@@ -139,6 +139,9 @@ class AdmmBase(ABC):
                 proba = F.softmax(self.torchnet(image), dim=1)
                 predicted_mask = proba.max(1)[1]
                 [b_iou, f_iou] = dice_loss(predicted_mask, mask)
+                b_dice_meter.update(b_iou, image.size(0))
+                f_dice_meter.update(f_iou, image.size(0))
+
 
                 if mode == '3Ddice':
                     predicted_mask = probs2one_hot(proba)
@@ -146,8 +149,6 @@ class AdmmBase(ABC):
                     batch_dice = dice_batch(predicted_mask, mask_oh)
                     threeD_dice.update(batch_dice[1], 1)
 
-                b_dice_meter.update(b_iou, image.size(0))
-                f_dice_meter.update(f_iou, image.size(0))
 
         self.torchnet.train()
         dataloader.dataset.set_mode(datalaoder_original_state)
