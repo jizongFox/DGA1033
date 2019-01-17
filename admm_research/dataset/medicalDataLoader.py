@@ -96,7 +96,7 @@ class MedicalImageDataset(Dataset):
         self.training = ModelMode.TRAIN
 
     def __len__(self):
-        return int(len(self.imgs))
+        return int(len(self.imgs) / 1)
 
     def set_mode(self, mode):
         assert isinstance(mode, (str, ModelMode)), 'the type of mode should be str or ModelMode, given %s' % str(mode)
@@ -108,7 +108,7 @@ class MedicalImageDataset(Dataset):
 
     def __getitem__(self, index):
         img_path, mask_path, mask_weak_path = self.imgs[index]
-        assert Path(img_path).stem==Path(mask_path).stem==Path(mask_weak_path).stem
+        assert Path(img_path).stem == Path(mask_path).stem == Path(mask_weak_path).stem
         img = Image.open(img_path).convert('L')  # .convert('RGB')
         mask = Image.open(mask_path)  # .convert('RGB')
         mask_weak = Image.open(mask_weak_path).convert('L')
@@ -127,14 +127,6 @@ class MedicalImageDataset(Dataset):
         mask_weak = (mask_weak >= 0.8).long()
 
         return [img, mask, mask_weak, img_path]
-
-    def mask_pixelvalue2OneHot(self, mask):
-        possible_pixel_values = [0.000000, 0.33333334, 0.66666669, 1.000000]
-        mask_ = mask.clone()
-        for i, p in enumerate(possible_pixel_values):
-            mask_[(mask < p + 0.1) & (mask > p - 0.1)] = i
-        mask_ = mask_.long()
-        return mask_
 
 
 def id_(x):

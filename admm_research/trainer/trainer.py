@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from admm_research import flags, LOGGER, config_logger
 from admm_research.method import AdmmGCSize
-from admm_research.utils import extract_from_big_dict, Writter_tf, tqdm_
+from admm_research.utils import extract_from_big_dict, Writter_tf, tqdm_, map_
 from torch.utils.data import DataLoader
 from admm_research.method import ModelMode
 import torch, os, shutil, numpy as np, pandas as pd
@@ -46,7 +46,7 @@ class Base(ABC):
 class ADMM_Trainer(Base):
     lr_scheduler_hparam_keys = ['max_epoch', 'milestones', 'gamma']
     trainer_hparam_keys = ['device', 'printfreq', 'num_admm_innerloop', 'num_workers',
-                           'batch_size', 'vis_during_training'] + Base.trainer_hparam_keys
+                           'batch_size', 'vis_during_training', 'group'] + Base.trainer_hparam_keys
 
     @classmethod
     def setup_arch_flags(cls):
@@ -61,6 +61,7 @@ class ADMM_Trainer(Base):
         flags.DEFINE_integer('num_workers', default=1, help='how many output for an epoch')
         flags.DEFINE_integer('batch_size', default=1, help='how many output for an epoch')
         flags.DEFINE_boolean('vis_during_training', default=False, help='matplotlib plot image during training')
+        flags.DEFINE_boolean('group', default=False, help='group patient to perform 3D dice')
 
     def __init__(self, ADMM_method: AdmmGCSize, datasets: list, criterion, hparams: dict) -> None:
         super().__init__()
@@ -75,6 +76,7 @@ class ADMM_Trainer(Base):
         self.admm.to(self.device)
         self.criterion.to(self.device)
         self.train_loader, self.val_loader = self._build_dataset(datasets, self.hparams)
+        assert set(map_(lambda x: x.equalize, datasets)).__len__() == 1
         if hparams['save_dir'] != 'None':
             self.writer_name = os.path.join(ADMM_Trainer.src, hparams['save_dir'])
             if Path(self.writer_name).exists():
@@ -112,7 +114,7 @@ class ADMM_Trainer(Base):
             try:
                 if epoch >= self.hparams['stop_dilation_epoch']:
                     self.admm.is_dilation = False
-                    LOGGER.info('At epoch {}, Stop_dilation begins'.format(epoch))
+                    LOGGER.debug('At epoch {}, Stop_dilation begins'.format(epoch))
             except:
                 pass
 
@@ -154,21 +156,30 @@ class ADMM_Trainer(Base):
     def _build_dataset(datasets, hparams):
         train_set, val_set = datasets
 
-        if val_set.root_dir.find('ACDC') > 0:
-            val_sampler = PatientSampler(val_set, "(patient\d+_\d+)_\d+", shuffle=False)
+        if hparams['group']:
+
+            if val_set.root_dir.find('ACDC') > 0:
+                val_sampler = PatientSampler(val_set, "(patient\d+_\d+)_\d+", shuffle=False)
+            else:
+                val_sampler = PatientSampler(val_set, "(Case\d+_\d+)_\d+", shuffle=False)
+            val_batch_size = 1
+            val_loader = DataLoader(val_set,
+                                    num_workers=hparams['num_workers'],
+                                    batch_sampler=val_sampler,
+                                    batch_size=val_batch_size
+                                    )
         else:
-            val_sampler = PatientSampler(val_set, "(Case\d+_\d+)_\d+", shuffle=False)
-        val_batch_size = 1
+            val_loader = DataLoader(val_set,
+                                    num_workers=hparams['num_workers'],
+                                    batch_size=1
+                                    )
+
         train_loader = DataLoader(train_set,
                                   num_workers=hparams['num_workers'],
                                   shuffle=True,
                                   batch_size=hparams['batch_size']
                                   )
-        val_loader = DataLoader(val_set,
-                                num_workers=hparams['num_workers'],
-                                batch_sampler=val_sampler,
-                                batch_size=val_batch_size
-                                )
+
         return train_loader, val_loader
 
     @staticmethod

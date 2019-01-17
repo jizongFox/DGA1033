@@ -14,8 +14,6 @@ from admm_research.utils import AverageMeter, dice_loss, pred2segmentation, extr
     probs2one_hot, class2one_hot
 from admm_research import LOGGER
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
 
 class ModelMode(Enum):
     """ Different mode of model """
@@ -107,21 +105,25 @@ class AdmmBase(ABC):
         plt.subplot(1, 1, 1)
         plt.imshow(self.img[0].cpu().data.numpy().squeeze(), cmap='gray')
 
-        plt.contour(self.weak_gt.squeeze().cpu().data.numpy(), level=[0], colors="yellow", alpha=0.2, linewidth=0.001, linestyles= 'dashed',
+        plt.contour(self.weak_gt.squeeze().cpu().data.numpy(), level=[0], colors="yellow", alpha=0.2, linewidth=0.001,
+                    linestyles='dashed',
                     label='GT')
-        plt.contour(self.gt.squeeze().cpu().data.numpy(), level=[0], colors="yellow", alpha=0.2, linewidth=0.001, linestyles = 'dashed',
+        plt.contour(self.gt.squeeze().cpu().data.numpy(), level=[0], colors="yellow", alpha=0.2, linewidth=0.001,
+                    linestyles='dashed',
                     label='GT')
         plt.contour(pred2segmentation(self.score).squeeze().cpu().data.numpy(), level=[0],
                     colors="green", alpha=0.2, linewidth=0.001, label='CNN')
 
         if name is not None:
-            plt.contour(getattr(self, name), level=[0], colors="red", alpha=0.2, linewidth=0.001, linestyles = 'dashed',label=name)
+            plt.contour(getattr(self, name), level=[0], colors="red", alpha=0.2, linewidth=0.001, linestyles='dashed',
+                        label=name)
 
         plt.title(name)
         plt.show(block=False)
         plt.pause(0.01)
 
     def evaluate(self, dataloader, mode='3Ddice'):
+        device = self.torchnet.parameters().__next__().device
         b_dice_meter = AverageMeter()
         f_dice_meter = AverageMeter()
         threeD_dice = AverageMeter()
@@ -142,13 +144,11 @@ class AdmmBase(ABC):
                 b_dice_meter.update(b_iou, image.size(0))
                 f_dice_meter.update(f_iou, image.size(0))
 
-
                 if mode == '3Ddice':
                     predicted_mask = probs2one_hot(proba)
                     mask_oh = class2one_hot(mask.squeeze(1), 2)
                     batch_dice = dice_batch(predicted_mask, mask_oh)
                     threeD_dice.update(batch_dice[1], 1)
-
 
         self.torchnet.train()
         dataloader.dataset.set_mode(datalaoder_original_state)
@@ -237,10 +237,13 @@ class AdmmSize(AdmmBase):
         else:
             raise ('something wrong here.')
         assert self.s.shape.__len__() == 2
-        LOGGER.debug('low_band:{},up_band:{},realsize:{}, new_S_size:{}'.format(self.lowbound,self.upbound,self.img_size,self.s.sum()))
+        LOGGER.debug(
+            'low_band:{},up_band:{},realsize:{}, new_S_size:{}'.format(self.lowbound, self.upbound, self.img_size,
+                                                                       self.s.sum()))
         # assert self.lowbound <= self.s.sum() <= self.upbound
 
     def _update_theta(self, criterion):
+        device = self.torchnet.parameters().__next__().device
 
         for i in range(self.optim_inner_loop_num):
             CE_loss = criterion(self.score, self.weak_gt.squeeze(1).long())
@@ -255,7 +258,7 @@ class AdmmSize(AdmmBase):
             loss.backward()
             self.optim.step()
 
-            self.forward_img(self.img, self.gt, self.weak_gt) ## update self.score
+            self.forward_img(self.img, self.gt, self.weak_gt)  ## update self.score
 
     def _update_v(self):
         new_v = self.v + (F.softmax(self.score, dim=1)[:, 1, :, :].cpu().data.numpy().squeeze() - self.s) * 0.1
@@ -320,6 +323,7 @@ class AdmmGCSize(AdmmSize):
         self.initilize = True
 
     def _update_theta(self, criterion):
+        device = self.torchnet.parameters().__next__().device
         for i in range(self.optim_inner_loop_num):
             self.torchnet.zero_grad()
 
