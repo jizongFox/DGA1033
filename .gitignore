@@ -1,6 +1,6 @@
 *__pycache__/
 *.idea/*
-*dataset/*
+*datase
 checkpoints/*
 results/*
 .DS_Store
@@ -10,3 +10,5 @@ archive
 runs/
 envs
 admm_research.egg-info/*
+/.mypy_cache/
+/archive/

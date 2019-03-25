@@ -1,0 +1,30 @@
+Dataset:
+  dataset_name: 'cardiac'
+  use_data_aug: False
+  metainfoGenerator_dict:
+    name: IndividualBoundGenerator
+    eps: 0.1
+#     name: GlobalBoundGenerator
+#     lowbound: 10
+#     highbound: 2000
+Dataloader:
+  num_workers: 1
+  batch_size: 8
+  shuffle: True
+
+Arch:
+  name: enet
+  num_classes: 2
+Optim:
+  name: Adam
+  lr: 0.001
+  weight_decay: 0.00001
+Scheduler:
+  name: StepLR
+  step_size: 100
+  gamma: 0.1
+
+
+ADMM_Method:
+  OptimInnerLoopNum: 2
+

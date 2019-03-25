@@ -29,7 +29,7 @@ class constraint:
         self.weak_mask = weak_mask.cpu().squeeze().numpy()
         self.full_mask = full_mask.cpu().squeeze().numpy()
         self.S = S
-        self.S_proba = F.softmax(S, 1)[:, 1].data.numpy().squeeze()
+        self.S_proba = F.softmax(S, 1)[:, 1].data.cpu().numpy().squeeze()
         self.__set_default_parametes()
         for k, v in kwargs.items():
             setattr(self, k, v)
@@ -61,7 +61,7 @@ class constraint:
         if self.name == 'reg':
             self.__initial_kernel()
 
-        self.Y = self.S.max(1)[1].squeeze().numpy()
+        self.Y = self.S.max(1)[1].squeeze().cpu().numpy()
         self.s_p = np.zeros(self.Y.shape)
         self.s_n = np.zeros(self.Y.shape)
         self.U_p = np.zeros(self.Y.shape)
@@ -69,7 +69,7 @@ class constraint:
 
     def update_S(self, S):
         self.S = S
-        self.S_proba = F.softmax(S, 1)[:, 1].data.numpy().squeeze()
+        self.S_proba = F.softmax(S, 1)[:, 1].data.cpu().numpy().squeeze()
 
     def update_Y(self):
         if self.name == 'reg':

@@ -26,7 +26,7 @@ batch_size_val = 1
 num_workers = 1
 lr = 0.001
 max_epoch = 200
-data_dir = '/Users/jizong/workspace/DGA1033/admm_research/dataset/ACDC-2D-All'
+data_dir = '/home/jizong/Workspace/DGA1033/admm_research/dataset/ACDC-2D-All'
 transform = transforms.Compose([
     transforms.Resize((200, 200)),
     transforms.ToTensor()

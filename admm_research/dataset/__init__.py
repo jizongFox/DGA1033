@@ -2,9 +2,11 @@ import random
 
 from PIL import ImageOps
 from torchvision import transforms
-
+import torch
+from torch import nn
+import numpy as np
 from admm_research.utils import Colorize
-from .medicalDataLoader import MedicalImageDataset,PatientSampler
+from .medicalDataLoader import MedicalImageDataset, PatientSampler
 
 color_transform = Colorize()
 
@@ -19,6 +21,19 @@ def _registre_data_root(name, root, alis=None):
         dataset_root[alis] = root
 
 
+class ToLabel(nn.Module):
+
+    def __init__(self, mapping={0: 0, 85: 0, 170: 0, 255: 1, }):
+        super().__init__()
+        self.mapping = mapping
+
+    def forward(self, input):
+        input_np = np.array(input).astype(np.float32)
+        input_np = np.vectorize(self.mapping.get)(input_np)
+        input_torch = torch.from_numpy(input_np).long()
+        return input_torch
+
+
 def segment_transform(size):
     img_transform = transforms.Compose([
         transforms.Resize(size),
@@ -26,7 +41,8 @@ def segment_transform(size):
     ])
     mask_transform = transforms.Compose([
         transforms.Resize(size),
-        transforms.ToTensor()
+        # transforms.ToTensor()
+        ToLabel()
     ])
     return {'Img': img_transform,
             'mask': mask_transform}
@@ -64,12 +80,19 @@ def augment(img, mask, weak_mask):
     return img, mask, weak_mask
 
 
-_registre_data_root('ACDC_2D', 'admm_research/dataset/ACDC-2D-All', 'cardiac')
-_registre_data_root('PROSTATE', 'admm_research/dataset/PROSTATE', 'prostate')
+_registre_data_root('ACDC_2D', './admm_research/dataset/ACDC-2D-All', 'cardiac')
+_registre_data_root('PROSTATE', './admm_research/dataset/PROSTATE', 'prostate')
 
 
 def get_dataset_root(dataname):
     if dataname in dataset_root.keys():
         return dataset_root[dataname]
     else:
-        raise('There is no such dataname, given {}'.format(dataname))
+        raise ('There is no such dataname, given {}'.format(dataname))
+
+
+def loader_interface(dataconfig_dict, loader_config_dict):
+    assert dataconfig_dict['dataset_name'] in ('cardiac', 'prostate')
+    if dataconfig_dict['dataset_name'] == 'cardiac':
+        from .ACDC_helper import ACDC_dataloader
+        return ACDC_dataloader(dataconfig_dict, loader_config_dict)

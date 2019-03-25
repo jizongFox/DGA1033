@@ -1,17 +1,22 @@
 # coding=utf8
 from __future__ import print_function, division
-import os, sys, random, re
-from PIL import Image, ImageOps
-from torch.utils.data import Dataset, DataLoader, Sampler
-from torchvision import transforms
-from admm_research.method import ModelMode
-from typing import Any, Callable, BinaryIO, Dict, List, Match, Pattern, Tuple, Union, Optional, TypeVar, Iterable
-from operator import itemgetter
-from pathlib import Path
+import sys
+import os
+import random
+import re
 from itertools import repeat
-from functools import partial
-import torch, numpy as np
+from pathlib import Path
+from typing import Callable, Dict, List, Match, Pattern, TypeVar, Iterable
 
+import numpy as np
+import torch
+from PIL import Image, ImageOps
+from torch.utils.data import Dataset, Sampler
+from torchvision import transforms
+from pathlib import Path
+from admm_research.method import ModelMode
+
+# sys.path.insert(0,str(Path(__file__).parent))
 default_transform = transforms.Compose([
     transforms.Resize((200, 200)),
     transforms.ToTensor()
@@ -79,7 +84,8 @@ def make_dataset(root, mode):
 
 class MedicalImageDataset(Dataset):
 
-    def __init__(self, root_dir, mode, transform=None, augment=None, equalize=False):
+    def __init__(self, root_dir, mode, transform=None, augment=None, equalize=False,
+                 metainfoGenerator_dict: dict = None):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
@@ -94,6 +100,10 @@ class MedicalImageDataset(Dataset):
         self.augment = augment
         self.equalize = equalize
         self.training = ModelMode.TRAIN
+        if metainfoGenerator_dict is not None:
+            from . import metainfoGenerator
+            self.metainGenerator = getattr(metainfoGenerator, metainfoGenerator_dict['name']) \
+                (**{k: v for k, v in metainfoGenerator_dict.items() if k != 'name'})
 
     def __len__(self):
         return int(len(self.imgs))
@@ -121,19 +131,14 @@ class MedicalImageDataset(Dataset):
         self.transform = self.transform if self.transform is not None else default_transform
         img = self.transform['Img'](img)
         mask = self.transform['mask'](mask)
-        mask = (mask >= 0.8).long()
+        # mask = (mask >= 0.8).long()
         mask_weak = self.transform['mask'](mask_weak)
-        mask_weak = (mask_weak >= 0.8).long()
+        # mask_weak = (mask_weak >= 0.8).long()
+        if getattr(self, 'metainGenerator'):
+            meta_info = self.metainGenerator(mask)
+            return [img, mask, mask_weak, img_path], meta_info
 
-        return [img, mask, mask_weak, img_path]
-
-    def mask_pixelvalue2OneHot(self, mask):
-        possible_pixel_values = [0.000000, 0.33333334, 0.66666669, 1.000000]
-        mask_ = mask.clone()
-        for i, p in enumerate(possible_pixel_values):
-            mask_[(mask < p + 0.1) & (mask > p - 0.1)] = i
-        mask_ = mask_.long()
-        return mask_
+        return [img, mask, mask_weak, img_path], None
 
 
 def id_(x):
