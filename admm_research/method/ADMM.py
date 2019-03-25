@@ -335,7 +335,6 @@ class AdmmGCSize(AdmmSize):
             self.optim.zero_grad()
             loss.backward()
             self.optim.step()
-
             self.forward_img(self.img, self.gt, self.weak_gt)
 
     def _update_gamma(self):
