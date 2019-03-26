@@ -14,3 +14,7 @@ admm_research.egg-info/*
 /archive/
 /tmp/
 tmp/
+/parameterSearch/
+admm_research/__init__.pyc
+
+/admm_research/dataset/ACDC-2D-All/train/.ipynb_checkpoints/

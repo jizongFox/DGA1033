@@ -1,28 +1,34 @@
+import time
 from abc import ABC, abstractmethod
-
-import matplotlib.pyplot as plt
+from multiprocessing.dummy import Pool
+# from torch.multiprocessing import Pool
 import numpy as np
+import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
+from functools import partial
+from itertools import repeat
 
-from admm_research import LOGGER, ModelMode
+from admm_research import ModelMode
 from admm_research.models import Segmentator
-from admm_research.utils import AverageMeter, dice_loss, pred2segmentation, dice_batch, \
-    probs2one_hot, class2one_hot
+from admm_research.utils import pred2segmentation
+from .gc import _update_gamma
 
 
 class AdmmBase(ABC):
 
     def __init__(self, model: Segmentator,
                  OptimInnerLoopNum: int = 1,
+                 ADMMLoopNum: int = 2,
                  device='cpu',
                  *args,
                  **kwargs
                  ) -> None:
         super().__init__()
-        self.p_v = 1
+        self.p_v = 10
         self.model = model
         self.OptimInnerLoopNum = OptimInnerLoopNum
+        self.ADMMLoopNum = ADMMLoopNum
         self.device = torch.device(device)
 
     def set_input(self, img, gt, weak_gt, *args, **kwargs):
@@ -57,53 +63,23 @@ class AdmmBase(ABC):
         plt.subplot(1, 1, 1)
         plt.imshow(self.img[0].cpu().data.numpy().squeeze(), cmap='gray')
 
-        plt.contour(self.weak_gt.squeeze().cpu().data.numpy(), level=[0], colors="yellow", alpha=0.2, linewidth=0.001,
+        plt.contour(self.weak_gt[0].squeeze().cpu().data.numpy(), level=[0], colors="yellow", alpha=0.2,
+                    linewidth=0.001,
                     label='GT')
-        plt.contour(self.gt.squeeze().cpu().data.numpy(), level=[0], colors="yellow", alpha=0.2, linewidth=0.001,
+        plt.contour(self.gt[0].squeeze().cpu().data.numpy(), level=[0], colors="yellow", alpha=0.2, linewidth=0.001,
                     label='GT')
-        if name is not None:
-            plt.contour(getattr(self, name), level=[0], colors="red", alpha=0.2, linewidth=0.001, label=name)
-        plt.contour(pred2segmentation(self.score).squeeze().cpu().data.numpy(), level=[0],
+        if name is not None and name != 'img':
+            try:
+                plt.contour(getattr(self, name)[0].detach().cpu(), level=[0], colors="red", alpha=0.2, linewidth=0.001,
+                            label=name)
+            except AttributeError:
+                plt.contour(getattr(self, name)[0], level=[0], colors="red", alpha=0.2, linewidth=0.001,
+                            label=name)
+        plt.contour(pred2segmentation(self.score)[0].squeeze().cpu().data.numpy(), level=[0],
                     colors="green", alpha=0.2, linewidth=0.001, label='CNN')
         plt.title(name)
         plt.show(block=False)
         plt.pause(0.01)
-
-    def evaluate(self, dataloader, mode='3Ddice'):
-        b_dice_meter = AverageMeter()
-        f_dice_meter = AverageMeter()
-        threeD_dice = AverageMeter()
-        self.torchnet.eval()
-        datalaoder_original_state = dataloader.dataset.training
-        dataloader.dataset.set_mode('eval')
-        assert dataloader.dataset.training == ModelMode.EVAL
-        assert self.torchnet.training == False
-
-        with torch.no_grad():
-
-            for i, (image, mask, weak_mask, pathname) in enumerate(dataloader):
-                if self.hparams['ignore_negative']:
-                    if weak_mask.sum() == 0 or mask.sum() == 0:
-                        continue
-                image, mask, weak_mask = image.to(self.device), mask.to(self.device), weak_mask.to(self.device)
-                proba = F.softmax(self.torchnet(image), dim=1)
-                predicted_mask = proba.max(1)[1]
-                [b_iou, f_iou] = dice_loss(predicted_mask, mask)
-
-                if mode == '3Ddice':
-                    predicted_mask = probs2one_hot(proba)
-                    mask_oh = class2one_hot(mask.squeeze(1), 2)
-                    batch_dice = dice_batch(predicted_mask, mask_oh)
-                    threeD_dice.update(batch_dice[1], 1)
-
-                b_dice_meter.update(b_iou, image.size(0))
-                f_dice_meter.update(f_iou, image.size(0))
-
-        self.torchnet.train()
-        dataloader.dataset.set_mode(datalaoder_original_state)
-        assert dataloader.dataset.training == datalaoder_original_state
-        assert self.torchnet.training == True
-        return b_dice_meter.avg, f_dice_meter.avg, threeD_dice.avg
 
     def to(self, device):
         self.model.to(device)
@@ -113,213 +89,166 @@ class AdmmSize(AdmmBase):
 
     def __init__(self, model: Segmentator,
                  OptimInnerLoopNum: int = 1,
+                 ADMMLoopNum: int = 2,
                  device: str = 'cpu'
                  ) -> None:
-        super().__init__(model, OptimInnerLoopNum, device)
+        super().__init__(model, OptimInnerLoopNum, ADMMLoopNum, device)
 
     def set_input(self, img, gt, weak_gt, bounds):
-        self.img: torch.Tensor = img
-        self.gt: torch.Tensor = gt
-        self.weak_gt: torch.Tensor = weak_gt
-        self.lowbound: torch.Tensor = bounds[:, 0]
-        self.highbound: torch.Tensor = bounds[:, 1]
-
-        self.score: torch.Tensor = self.model.predict(img, logit=False)
-        self.s: np.ndarray = pred2segmentation(self.score).cpu().data.numpy().squeeze()  # b, w, h
-        assert self.s.shape.__len__() == 3
-        self.v = np.zeros(list(self.s.shape))  # b w h
+        self.img: torch.Tensor = img.to(self.device)
+        _, _, _, _ = self.img.shape
+        self.gt: torch.Tensor = gt.to(self.device)
+        _, _, _ = self.gt.shape
+        self.weak_gt: torch.Tensor = weak_gt.to(self.device)
+        self.lowbound: torch.Tensor = bounds[:, 0].to(self.device)
+        self.highbound: torch.Tensor = bounds[:, 1].to(self.device)
+        self.score: torch.Tensor = self.model.predict(img, logit=True)
+        _, _, _, _ = self.score.shape
+        self.s: torch.Tensor = pred2segmentation(self.score)  # b, w, h
+        _, _, _ = self.s.shape
+        self.v = torch.zeros_like(self.s, dtype=torch.float).to(self.device)  # b w h
+        _, _, _ = self.v.shape
 
     def update(self, criterion):
-        self._update_s()
-        self._update_theta(criterion)
-        self._update_v()
+        for iteration in range(self.ADMMLoopNum):
+            self._update_s_torch()
+            self._update_theta(criterion)
+            self._update_v()
+            # self.show('s', fig_num=1)
+            # self.show('v', fig_num=2)
+            # time1 = time.time()
+            # results = _multiprocess_Call(self.img.cpu().numpy().squeeze(1), F.softmax(self.score.detach(), 1).cpu().numpy(),
+            #                          self.v.cpu().numpy(), self.gt.cpu().numpy(), self.weak_gt.cpu().numpy())
+            # print(f'time used for gc of batch {self.img.shape[0]}: {time.time()-time1}')
 
-    def _update_s(self):
-        if self.weak_gt.sum() == 0 or self.gt.sum() == 0:
-            self.s = np.zeros(self.img.squeeze().shape)
-            return
-
-        s_score = 0.5 - (F.softmax(self.score, 1)[:, 1].cpu().data.numpy().squeeze() + self.v)
+    def _update_s_torch(self):
+        s_score = 0.5 - (F.softmax(self.score, 1)[:, 1].squeeze() + self.v)
         original_shape = s_score[0].shape
         for i, a in enumerate(s_score):
-            assert a.shape.__len__() == 2
-            a_ = np.sort(a.ravel())
-            useful_pixel_number = (a < 0).sum()
+            if self.highbound[i] == 0:
+                self.s[i] = torch.zeros(original_shape).to(self.device)
+                continue
+
+            sorted_value, sorted_index = torch.sort(a.view(-1))
+            useful_pixel_number = (sorted_value < 0).sum()
             if self.lowbound[i] < useful_pixel_number and self.highbound[i] > useful_pixel_number:
                 self.s[i] = ((a < 0) * 1.0).reshape(original_shape)
             elif useful_pixel_number <= self.lowbound[i]:
-                self.s[i] = ((a <= a_[self.lowbound[i] + 1]) * 1.0).reshape(original_shape)
+                self.s[i] = ((a <= sorted_value[self.lowbound[i] + 1]) * 1.0).reshape(original_shape)
             elif useful_pixel_number >= self.highbound[i]:
-                self.s[i] = ((a <= a_[self.highbound[i] - 1] * 1.0) * 1).reshape(original_shape)
+                self.s[i] = ((a <= sorted_value[self.highbound[i] - 1] * 1.0) * 1).reshape(original_shape)
             else:
                 raise ('something wrong here.')
+        self.s = self.s.detach()
         assert self.s.shape.__len__() == 3
 
     def _update_theta(self, criterion):
+        self.score = self.model.predict(self.img, logit=True)
 
         for i in range(self.OptimInnerLoopNum):
             CE_loss = criterion(self.score, self.weak_gt.squeeze(1).long())
             unlabled_loss = self.p_v / 2 * (
-                    F.softmax(self.score, dim=1)[:, 1] + torch.from_numpy(-self.s + self.v).float().to(
-                self.device)).norm(p=2) ** 2
+                    F.softmax(self.score, dim=1)[:, 1] + (-self.s.float() + self.v.float())).norm(
+                dim=[1, 2]).mean() ** 2
 
-            unlabled_loss /= list(self.score.reshape(-1).size())[0]
+            unlabled_loss /= list(self.s.reshape(-1).size())[0]
 
             loss = CE_loss + unlabled_loss
             self.model.optimizer.zero_grad()
             loss.backward()
             self.model.optimizer.step()
-            self.score = self.model.predict(self.img, logit=False)
+            self.score = self.model.predict(self.img, logit=True)
+            # print(f'CE:{CE_loss.item()}, unlabeled:{unlabled_loss.item()}')
 
     def _update_v(self):
-        new_v = self.v + (F.softmax(self.score, dim=1)[:, 1, :, :].cpu().data.numpy().squeeze() - self.s) * 0.1
-        self.v = new_v
+        self.v = self.v + (F.softmax(self.score, dim=1)[:, 1].squeeze().detach() - self.s.float()) * 0.1
+        assert self.v.shape.__len__() == 3
 
 
-'''
 class AdmmGCSize(AdmmSize):
-    size_hparam_keys = [] + AdmmSize.size_hparam_keys
-    optim_hparam_keys = [] + AdmmSize.optim_hparam_keys
-    gc_hparam_keys = ['lamda', 'sigma', 'kernelsize', 'dilation_level', 'stop_dilation_epoch']
 
-    @classmethod
-    def setup_arch_flags(cls):
-        super().setup_arch_flags()
-        flags.DEFINE_float('lamda', default=1,
-                           help='balance between the unary and the neighor term')
-        flags.DEFINE_float('sigma', default=0.02, help='Smooth the neigh term')
-        flags.DEFINE_integer('kernelsize', default=5,
-                             help='kernelsize of the gc')
-        flags.DEFINE_integer('dilation_level', default=7,
-                             help='iterations to execute the dilation operation')
-        flags.DEFINE_integer('stop_dilation_epoch', default=100,
-                             help='stop dilation operation at this epoch')
+    def __init__(self, model: Segmentator, OptimInnerLoopNum: int = 1, ADMMLoopNum: int = 2,
+                 device: str = 'cpu', lamda=10, sigma=0.02) -> None:
+        super().__init__(model, OptimInnerLoopNum, ADMMLoopNum, device)
+        self.lamda = lamda
+        self.sigma = sigma
+        self.p_u = 10
 
-    def __init__(self, torchnet: nn.Module, hparams: dict) -> None:
-        super().__init__(torchnet, hparams)
-        gc_hparams = extract_from_big_dict(hparams, AdmmGCSize.gc_hparam_keys)
-        for d, v in gc_hparams.items():
-            setattr(self, d, v)
-        self.is_dilation = True
+    def set_input(self, img, gt, weak_gt, bounds):
+        self.img: torch.Tensor = img.to(self.device)
+        _, _, _, _ = self.img.shape
+        self.gt: torch.Tensor = gt.to(self.device)
+        _, _, _ = self.gt.shape
+        self.weak_gt: torch.Tensor = weak_gt.to(self.device)
+        self.lowbound: torch.Tensor = bounds[:, 0].to(self.device)
+        self.highbound: torch.Tensor = bounds[:, 1].to(self.device)
+        self.score: torch.Tensor = self.model.predict(img, logit=True)
+        _, _, _, _ = self.score.shape
+        self.gamma: np.ndarray = pred2segmentation(self.score).cpu().numpy()
+        _, _, _ = self.gamma.shape
+        self.s: torch.Tensor = pred2segmentation(self.score)  # b, w, h
+        _, _, _ = self.s.shape
+        self.u = np.zeros_like(self.s.cpu())
+        _, _, _ = self.u.shape
+        self.v = torch.zero
+        s_like(self.s, dtype=torch.float).to(self.device)  # b w h
+        _, _, _ = self.v.shape
 
-    def reset(self, img, gt, wg):
-        super().reset(img, gt, wg)
-        self.gamma = np.zeros(img.squeeze().shape)
-        self.u = np.zeros(img.squeeze().shape)
-
-    def update(self, img_gt_weakgt, criterion):
-        self.forward_img(*img_gt_weakgt)
-        if self.initilize == False:
-            self.initialize_dummy_variables(self.score)
-        self._update_s()
-        self._update_gamma()
-        self._update_theta(criterion)
-        self._update_u()
-        self._update_v()
-
-    def update_1(self, img_gt_weakgt):
-        self.forward_img(*img_gt_weakgt)
-        if self.initilize == False:
-            self.initialize_dummy_variables(self.score)
-        self._update_s()
-        self._update_gamma()
-
-    def update_2(self, criterion):
-        self._update_theta(criterion)
-        self._update_u()
-        self._update_v()
-
-    def initialize_dummy_variables(self, score):
-        self.s = pred2segmentation(score).cpu().data.numpy().squeeze()  # b, w, h
-        self.gamma = self.s
-        self.initilize = True
-
-    def _update_theta(self, criterion):
-        for i in range(self.optim_inner_loop_num):
-            self.torchnet.zero_grad()
-
-            CE_loss = criterion(self.score, self.weak_gt.squeeze(1).long())
-            unlabled_loss = self.p_v / 2 * (
-                    F.softmax(self.score, dim=1)[:, 1] + torch.from_numpy(-self.s + self.v).float().to(
-                device)).norm(p=2) ** 2 \
-                            + self.p_u / 2 * (F.softmax(self.score, dim=1)[:, 1] + torch.from_numpy(
-                -self.gamma + self.u).float().to(device)).norm(p=2) ** 2
-
-            unlabled_loss /= list(self.score.reshape(-1).size())[0]
-
-            loss = CE_loss + unlabled_loss
-            self.optim.zero_grad()
-            loss.backward()
-            self.optim.step()
-            self.forward_img(self.img, self.gt, self.weak_gt)
+    def update(self, criterion):
+        for iteration in range(self.ADMMLoopNum):
+            self._update_s_torch()
+            self._update_gamma()
+            self._update_theta(criterion)
+            self._update_u()
+            self._update_v()
+            self.show('gamma',fig_num=1)
+            self.show('s',fig_num=2)
 
     def _update_gamma(self):
-        if self.weak_gt.sum() == 0 or self.gt.sum() == 0:
-            self.gamma = np.zeros(self.img.squeeze().shape)
-            return
-        unary_term_gamma_1 = np.multiply(
-            (0.5 - (F.softmax(self.score, dim=1).cpu().data.numpy()[:, 1, :, :].squeeze() + self.u)),
-            1)
-        unary_term_gamma_1[(self.weak_gt.squeeze().cpu().data.numpy() == 1).astype(bool)] = -np.inf
+        new_gamma = _multiprocess_Call(self.img.cpu().numpy().squeeze(1),
+                                       F.softmax(self.score.detach(), 1).cpu().numpy(),
+                                       self.u, self.gt.cpu().numpy(), self.weak_gt.cpu().numpy(), self.lamda,
+                                       self.sigma)
+        new_gamma = np.stack(new_gamma, axis=0)
+        _, _, _ = new_gamma.shape
+        self.gamma = new_gamma
 
-        weak_mask = self.weak_gt.cpu().squeeze().numpy()
+    def update_2(self, criterion):
+        for iteration in range(self.ADMMLoopNum):
+            self._update_theta(criterion)
+            self._update_u()
+            self._update_v()
 
-        kernel = np.ones((5, 5), np.uint8)
-        unary_term_gamma_0 = np.zeros(unary_term_gamma_1.shape)
+    def _update_theta(self, criterion):
+        for i in range(self.OptimInnerLoopNum):
+            current_n_gamma_p_u = torch.from_numpy(-self.gamma + self.u).float().to(self.device)
 
-        if self.is_dilation:
-            dilation = cv2.dilate(weak_mask.astype(np.float32), kernel, iterations=self.dilation_level)
-            unary_term_gamma_1[dilation != 1] = np.inf
+            CE_loss = criterion(self.score, self.weak_gt.squeeze(1).long())
+            size_loss = self.p_v / 2 * \
+                        (F.softmax(self.score, dim=1)[:, 1] + (-self.s.float() + self.v.float())).norm(
+                            dim=[1, 2]).mean() ** 2
+            gamma_loss = self.p_u / 2 * \
+                         (F.softmax(self.score, dim=1)[:, 1] + current_n_gamma_p_u).norm(dim=[1,2]).mean() ** 2
 
-        g = maxflow.Graph[float](0, 0)
-        nodeids = g.add_grid_nodes(list(self.gamma.shape))
-        g = self._set_boundary_term(g, nodeids, self.img, lumda=self.lamda, sigma=self.sigma)
-        g.add_grid_tedges(nodeids, (unary_term_gamma_0).squeeze(),
-                          (unary_term_gamma_1).squeeze())
-        g.maxflow()
-        sgm = g.get_grid_segments(nodeids) * 1
-        new_gamma = np.int_(np.logical_not(sgm))
-        if new_gamma.sum() > 0:
-            self.gamma = new_gamma
-        else:
-            self.gamma = self.s
-        assert self.gamma.shape.__len__() == 2
+            unlabled_loss = (size_loss+gamma_loss)/ list(self.s.reshape(-1).size())[0]
 
-    def _set_boundary_term(self, g, nodeids, img, lumda, sigma):
-        self.kernel = np.ones((self.kernelsize, self.kernelsize))
-        self.kernel[int(self.kernel.shape[0] / 2), int(self.kernel.shape[1] / 2)] = 0
-        kernel = self.kernel
-        transfer_function = lambda pixel_difference: lumda * np.exp((-1 / sigma ** 2) * pixel_difference ** 2)
-
-        img = img.squeeze().cpu().data.numpy()
-
-        # =====new =========================================
-        padding_size = int(max(kernel.shape) / 2)
-        position = np.array(list(zip(*np.where(kernel != 0))))
-
-        def shift_matrix(matrix, kernel):
-            center_x, center_y = int(kernel.shape[0] / 2), int(kernel.shape[1] / 2)
-            [kernel_x, kernel_y] = np.array(list(zip(*np.where(kernel == 1))))[0]
-            dy, dx = kernel_x - center_x, kernel_y - center_y
-            shifted_matrix = np.roll(matrix, -dy, axis=0)
-            shifted_matrix = np.roll(shifted_matrix, -dx, axis=1)
-            return shifted_matrix
-
-        for p in position[:int(len(position) / 2)]:
-            structure = np.zeros(kernel.shape)
-            structure[p[0], p[1]] = kernel[p[0], p[1]]
-            pad_im = np.pad(img, ((padding_size, padding_size), (padding_size, padding_size)), 'constant',
-                            constant_values=0)
-            shifted_im = shift_matrix(pad_im, structure)
-            weights_ = transfer_function(
-                np.abs(pad_im - shifted_im)[padding_size:-padding_size, padding_size:-padding_size])
-
-            g.add_grid_edges(nodeids, structure=structure, weights=weights_, symmetric=True)
-
-        return g
+            loss = CE_loss + unlabled_loss
+            self.model.optimizer.zero_grad()
+            loss.backward()
+            self.model.optimizer.step()
+            self.score = self.model.predict(self.img,logit=True)
 
     def _update_u(self):
-        new_u = self.u + (F.softmax(self.score, dim=1)[:, 1, :, :].cpu().data.numpy().squeeze() - self.gamma) * 0.01
+        new_u:np.ndarray = self.u + (F.softmax(self.score, dim=1)[:, 1].cpu().data.numpy().squeeze() - self.gamma) * 0.01
+        assert new_u.shape.__len__() == 3
         self.u = new_u
-        assert self.u.shape.__len__() == 2
-'''
+
+
+# helper function to call graphcut
+def _multiprocess_Call(imgs, scores, us, gts, weak_gts, lamda, sigma):
+    P = Pool()
+    results = P.starmap(Update_gamma, zip(imgs, scores, us, gts, weak_gts, repeat(lamda), repeat(sigma)))
+    P.close()
+    return results
+
+Update_gamma = partial(_update_gamma, kernelsize=3)
