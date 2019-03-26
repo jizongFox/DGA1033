@@ -12,3 +12,5 @@ envs
 admm_research.egg-info/*
 /.mypy_cache/
 /archive/
+/tmp/
+tmp/

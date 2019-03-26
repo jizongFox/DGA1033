@@ -9,33 +9,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from admm_research import flags
+from admm_research import flags, ModelMode
 from admm_research.utils import AverageMeter, dice_loss, pred2segmentation, extract_from_big_dict, dice_batch, \
     probs2one_hot, class2one_hot
 from admm_research import LOGGER
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-
-class ModelMode(Enum):
-    """ Different mode of model """
-    TRAIN = 'TRAIN'  # during training
-    EVAL = 'EVAL'  # eval mode. On validation data
-    PRED = 'PRED'
-
-    @staticmethod
-    def from_str(mode_str):
-        """ Init from string
-            :param mode_str: ['train', 'eval', 'predict']
-        """
-        if mode_str == 'train':
-            return ModelMode.TRAIN
-        elif mode_str == 'eval':
-            return ModelMode.EVAL
-        elif mode_str == 'predict':
-            return ModelMode.PRED
-        else:
-            raise ValueError('Invalid argument mode_str {}'.format(mode_str))
 
 
 class AdmmBase(ABC):

@@ -1,204 +1,99 @@
 from abc import ABC, abstractmethod
 from admm_research import flags, LOGGER, config_logger
-from admm_research.method import AdmmGCSize
+from admm_research.method.ADMM_refactor import AdmmBase
+from admm_research.models import Segmentator
 from admm_research.utils import extract_from_big_dict, Writter_tf, tqdm_
 from torch.utils.data import DataLoader
-from admm_research.method import ModelMode
+from admm_research import ModelMode
 import torch, os, shutil, numpy as np, pandas as pd
 from admm_research.dataset import PatientSampler
+from torch import nn
 from pathlib import Path
+import yaml
 
 
 class Base(ABC):
-    trainer_hparam_keys = ['save_dir']
     src = './runs'
     des = './archive'
 
-    def __init_subclass__(cls):
-        """ Make sure every subclass have arch_hparam_keys """
-        if not 'trainer_hparam_keys' in cls.__dict__:
-            raise NotImplementedError(
-                'Attribute \'trainer_hparam_keys\' has not been overriden in class \'{}\''.format(cls))
-
-    @classmethod
     @abstractmethod
-    def setup_arch_flags(cls):
-        """ Setup the arch_hparams """
-        flags.DEFINE_string('save_dir', default='None', help='saved_dir')
+    def start_training(self, *args, **kwargs):
+        raise NotImplementedError
 
     @abstractmethod
-    def start_training(self):
-        pass
+    def _evaluate(self, dataloader, *args, **kwargs):
+        raise NotImplementedError
 
     @abstractmethod
-    def _evaluate(self, dataloader):
-        pass
+    def _main_loop(self, dataloader, epoch, mode, *args, **kwargs):
+        raise NotImplementedError
 
     @abstractmethod
-    def _main_loop(self, dataloader, epoch, mode):
-        pass
+    def checkpoint(self, *args, **kwargs):
+        raise NotImplementedError
 
-    @abstractmethod
-    def checkpoint(self, **kwargs):
-        pass
+    # @abstractmethod
+    # def load_checkpoint(self, *args, **kwargs):
+    #     raise NotImplementedError
 
 
 class ADMM_Trainer(Base):
 
-    # @classmethod
-    # def setup_arch_flags(cls):
-    #     super().setup_arch_flags()
-    #     flags.DEFINE_integer('max_epoch', default=200, help='number of max_epoch')
-    #     flags.DEFINE_multi_integer('milestones', default=[20, 40, 60, 80, 100, 120, 140, 160],
-    #                                help='miletones for lr_decay')
-    #     flags.DEFINE_float('gamma', default=0.9, help='gamma for lr_decay')
-    #     flags.DEFINE_string('device', default='cpu', help='cpu or cuda?')
-    #     flags.DEFINE_integer('printfreq', default=5, help='how many output for an epoch')
-    #     flags.DEFINE_integer('num_admm_innerloop', default=2, help='how many output for an epoch')
-    #     flags.DEFINE_integer('num_workers', default=1, help='how many output for an epoch')
-    #     flags.DEFINE_integer('batch_size', default=1, help='how many output for an epoch')
-    #     flags.DEFINE_boolean('vis_during_training', default=False, help='matplotlib plot image during training')
-
-    def __init__(self, ADMM_method: AdmmGCSize, datasets: list, criterion, hparams: dict) -> None:
+    def __init__(self, ADMM_method: AdmmBase, train_dataloader: DataLoader, val_dataloader: DataLoader,
+                 criterion: nn.Module, save_dir: str = 'tmp', max_epcoh: int = 3, checkpoint=None,
+                 whole_config_dict=None) -> None:
         super().__init__()
         self.admm = ADMM_method
+        self.train_dataloader = train_dataloader
+        self.val_dataloader = val_dataloader
+        self.criterion = criterion
+        self.max_epoch = max_epcoh
+        self.begin_epoch = 0
+        self.save_dir = Path(save_dir)
+        self.save_dir.mkdir(parents=True, exist_ok=True)
+        config_logger(self.save_dir)
+        self.device = self.admm.device
+        if checkpoint is not None:
+            self.load_checkpoint(checkpoint)
 
-            self.writer_name = os.path.join(ADMM_Trainer.src,
-                                            self.generate_current_time() + '_' + self.generate_random_str())
-        self.writer = Writter_tf(self.writer_name, self.admm.torchnet, num_img=30)
-        config_logger(self.writer_name)
-        self.save_hparams()
+        if whole_config_dict:
+            self.whole_config = whole_config_dict
+            with open(self.save_dir / 'config.yaml', 'w') as f:
+                yaml.dump(whole_config_dict, f, default_flow_styple=True)
+        self.to(self.device)
+
+
+    def to(self,device):
+        self.admm.to(device)
+        self.criterion.to(device)
+
+    def schedulerstep(self):
+        self.admm.model.schedulerStep()
 
     def start_training(self):
-        metrics = np.zeros((self.max_epoch, 3))
 
-        LOGGER.info('begin training with max_epoch = %d' % self.hparams['max_epoch'])
-        for epoch in range(self.hparams['max_epoch']):
-            self.lr_scheduler.step()
-            self._main_loop(self.train_loader, epoch)
+        for epoch in range(self.begin_epoch, self.max_epoch):
+            self._main_loop(self.train_dataloader, epoch, mode=ModelMode.TRAIN)
             with torch.no_grad():
-                f_dice, _ = self._evaluate(self.train_loader, mode='2Ddice')
-                self.writer.add_scalar('train/2Ddice', f_dice, epoch)
-                # self.writer.add_images(self.train_loader, epoch, device=self.device, opt='tensorboard', omit_image=True)
-                LOGGER.info('At epoch {}, 2d train dice is {:.3f}%, under EVAL mode'.format(epoch, f_dice * 100))
-                metrics[epoch, 0] = f_dice
+                f_dice, thr_dice = self._evaluate(self.val_dataloader, mode='3Ddice')
 
-                f_dice, thr_dice = self._evaluate(self.val_loader, mode='3Ddice')
-                self.writer.add_scalar('val/2Ddice', f_dice, epoch)
-                self.writer.add_scalar('val/3Ddice', thr_dice, epoch)
-                self.writer.add_images(self.val_loader, epoch, device=self.device, opt='save', omit_image=False)
-                LOGGER.info('At epoch {}, 2d val dice is {:.3f}%, under EVAL mode'.format(epoch, f_dice * 100))
-                LOGGER.info('At epoch {}, 3d val dice is {:.3f}%, under EVAL mode'.format(epoch, thr_dice * 100))
-                metrics[epoch, [1, 2]] = [f_dice, thr_dice]
-
-            try:
-                if epoch >= self.hparams['stop_dilation_epoch']:
-                    self.admm.is_dilation = False
-                    LOGGER.info('At epoch {}, Stop_dilation begins'.format(epoch))
-            except:
-                pass
-
-            self.checkpoint(f_dice, epoch)
-            pd.DataFrame(metrics, columns=['tra_2D_dice', 'val_2D_dice', 'val_3D_dice']).to_csv(
-                os.path.join(self.writer_name, 'metrics.csv'), index_label='epoch')
-
-        ## clean up
         self.writer.cleanup()
 
-    def _main_loop(self, dataloader, epoch, mode=ModelMode.TRAIN):
+    def _main_loop(self, dataloader, epoch, mode, *args, **kwargs):
         dataloader.dataset.set_mode(mode)
         self.admm.set_mode(mode)
-        assert self.admm.torchnet.training == True
+        assert self.admm.model.training == True
         assert dataloader.dataset.training == ModelMode.TRAIN
 
-        for i, ((img, gt, wgt, _),size) in tqdm_(enumerate(dataloader)):
-
+        for i, ((img, gt, wgt, _), size) in tqdm_(enumerate(dataloader)):
             img, gt, wgt = img.to(self.device), gt.to(self.device), wgt.to(self.device)
-            self.admm.reset(img, gt, wgt)
-            for j in range(self.hparams['num_admm_innerloop']):  #
-                self.admm.update_1((img, gt, wgt))
-                if self.hparams['vis_during_training']:
-                    self.visualize_during_Training()
-                self.admm.update_2(self.criterion)
+            self.admm.set_input(img, gt, wgt, size[:,:,1])
+            self.admm.update(self.criterion)
 
         LOGGER.info('%s %d complete' % (mode.value, epoch))
 
-    def _evaluate(self, dataloader, mode=ModelMode.EVAL):
-
-        [_, fdice, threeD_dice] = self.admm.evaluate(dataloader, mode)
-        return fdice, threeD_dice
-
-    @staticmethod
-    def _build_dataset(datasets, hparams):
-        train_set, val_set = datasets
-
-        if val_set.root_dir.find('ACDC') > 0:
-            val_sampler = PatientSampler(val_set, "(patient\d+_\d+)_\d+", shuffle=False)
-        else:
-            val_sampler = PatientSampler(val_set, "(Case\d+_\d+)_\d+", shuffle=False)
-        val_batch_size = 1
-        train_loader = DataLoader(train_set,
-                                  num_workers=hparams['num_workers'],
-                                  shuffle=True,
-                                  batch_size=hparams['batch_size']
-                                  )
-        val_loader = DataLoader(val_set,
-                                num_workers=hparams['num_workers'],
-                                batch_sampler=val_sampler,
-                                batch_size=val_batch_size
-                                )
-        return train_loader, val_loader
-
-    @staticmethod
-    def generate_random_str(randomlength=16):
-        """
-        生成一个指定长度的随机字符串
-        """
-        import random
-        random_str = ''
-        base_str = 'ABCDEFGHIGKLMNOPQRSTUVWXYZabcdefghigklmnopqrstuvwxyz0123456789'
-        length = len(base_str) - 1
-        for i in range(randomlength):
-            random_str += base_str[random.randint(0, length)]
-        return random_str
-
-    @staticmethod
-    def generate_current_time():
-        from time import strftime, localtime
-        ctime = strftime("%Y-%m-%d %H:%M:%S", localtime())
-        return ctime
-
-    def save_hparams(self):
-        import pandas as pd
-        message = ''
-        message += '----------------- Options ---------------\n'
-        for k, v in sorted(self.hparams.items()):
-            comment = ''
-            message += '{:>25}: {:<30}{}\n'.format(str(k), str(v), comment)
-        message += '----------------- End -------------------'
-        print(message)
-        file_name = os.path.join(self.writer_name, 'opt.txt')
-        with open(file_name, 'wt') as opt_file:
-            opt_file.write(message)
-            opt_file.write('\n')
-        pd.Series(self.hparams).to_csv(os.path.join(self.writer_name, 'opt.csv'))
-
-    def visualize_during_Training(self):
-        try:
-            self.admm.show('gamma', fig_num=2)
-        except Exception as e:
-            # print(e)
-            pass
-        try:
-            self.admm.show('s', fig_num=3)
-        except Exception as e:
-            # print(e)
-            pass
-        try:
-            self.admm.show('Y', fig_num=3)
-        except Exception as e:
-            # print(e)
-            pass
+    def _evaluate(self, dataloader, *args, **kwargs):
+        pass
 
     def checkpoint(self, dice, epoch):
         try:

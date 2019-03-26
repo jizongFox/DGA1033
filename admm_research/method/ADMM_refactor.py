@@ -1,44 +1,32 @@
 from abc import ABC, abstractmethod
-from enum import Enum
-import cv2
+
 import matplotlib.pyplot as plt
-import maxflow
 import numpy as np
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-from admm_research.models import Segmentator
-from admm_research.utils import AverageMeter, dice_loss, pred2segmentation, extract_from_big_dict, dice_batch, \
-    probs2one_hot, class2one_hot
+
 from admm_research import LOGGER, ModelMode
-from torch.utils.data import DataLoader
+from admm_research.models import Segmentator
+from admm_research.utils import AverageMeter, dice_loss, pred2segmentation, dice_batch, \
+    probs2one_hot, class2one_hot
 
 
 class AdmmBase(ABC):
 
     def __init__(self, model: Segmentator,
-                 train_loader:DataLoader,
-                 val_loader:DataLoader,
                  OptimInnerLoopNum: int = 1,
                  device='cpu',
                  *args,
                  **kwargs
                  ) -> None:
         super().__init__()
+        self.p_v = 1
         self.model = model
-        self.train_loader = train_loader
-        self.val_loader = val_loader
         self.OptimInnerLoopNum = OptimInnerLoopNum
-        self.device=torch.device(device)
+        self.device = torch.device(device)
 
-    @abstractmethod
-    def set_input(self, img, gt, weak_gt):
-        assert img.size(0) == 1, 'batchsize of 1 is permitted, given %d' % img.size(0)
-        self.img = img
-        self.gt = gt
-        self.weak_gt = weak_gt
-        self.img_size = torch.sum(gt)
-        self.score = self.torchnet(img)
+    def set_input(self, img, gt, weak_gt, *args, **kwargs):
+        pass
 
     @property
     def save_dict(self):
@@ -52,16 +40,12 @@ class AdmmBase(ABC):
     def _update_theta(self, **kwargs):
         pass
 
-    @abstractmethod
-    def reset(self, **kwargs):
-        pass
-
     def set_mode(self, mode):
         assert mode in (ModelMode.TRAIN, ModelMode.EVAL)
         if mode == ModelMode.TRAIN:
-            self.torchnet.train()
+            self.model.torchnet.train()
         else:
-            self.torchnet.eval()
+            self.model.torchnet.eval()
 
     def show(self, name=None, fig_num=1):
         try:
@@ -101,7 +85,7 @@ class AdmmBase(ABC):
                 if self.hparams['ignore_negative']:
                     if weak_mask.sum() == 0 or mask.sum() == 0:
                         continue
-                image, mask, weak_mask = image.to(device), mask.to(device), weak_mask.to(device)
+                image, mask, weak_mask = image.to(self.device), mask.to(self.device), weak_mask.to(self.device)
                 proba = F.softmax(self.torchnet(image), dim=1)
                 predicted_mask = proba.max(1)[1]
                 [b_iou, f_iou] = dice_loss(predicted_mask, mask)
@@ -122,53 +106,31 @@ class AdmmBase(ABC):
         return b_dice_meter.avg, f_dice_meter.avg, threeD_dice.avg
 
     def to(self, device):
-        self.torchnet.to(device)
+        self.model.to(device)
 
 
 class AdmmSize(AdmmBase):
 
     def __init__(self, model: Segmentator,
-                 train_loader: DataLoader,
-                 val_loader: DataLoader,
                  OptimInnerLoopNum: int = 1,
+                 device: str = 'cpu'
                  ) -> None:
-        super().__init__(model, train_loader, val_loader, OptimInnerLoopNum)
+        super().__init__(model, OptimInnerLoopNum, device)
 
+    def set_input(self, img, gt, weak_gt, bounds):
+        self.img: torch.Tensor = img
+        self.gt: torch.Tensor = gt
+        self.weak_gt: torch.Tensor = weak_gt
+        self.lowbound: torch.Tensor = bounds[:, 0]
+        self.highbound: torch.Tensor = bounds[:, 1]
 
-    def reset(self, img, gt, wg, bounds):
-        self.s = np.zeros(img.squeeze().shape)
-        self.v = np.zeros(img.squeeze().shape)
-        self.initilize = False
-        assert isinstance(bounds,tuple)
-        assert bounds.__len__()==2
-        self.bounds = bounds
-
-    def initialize_dummy_variables(self, score):
-        self.s = pred2segmentation(score).cpu().data.numpy().squeeze()  # b, w, h
+        self.score: torch.Tensor = self.model.predict(img, logit=False)
+        self.s: np.ndarray = pred2segmentation(self.score).cpu().data.numpy().squeeze()  # b, w, h
+        assert self.s.shape.__len__() == 3
         self.v = np.zeros(list(self.s.shape))  # b w h
-        self.initilize = True
 
-    def forward_img(self, img, gt, weak_gt):
-        super().forward_img(img, gt, weak_gt)
-        if self.individual_size_constraint:
-            self.upbound = int((1.0 + self.eps) * self.img_size.item())
-            self.lowbound = int((1.0 - self.eps) * self.img_size.item())
-
-    def update(self, img_gt_weakgt, criterion):
-        self.forward_img(*img_gt_weakgt)
-        if self.initilize == False:
-            self.initialize_dummy_variables(self.score)
+    def update(self, criterion):
         self._update_s()
-        self._update_theta(criterion)
-        self._update_v()
-
-    def update_1(self, img_gt_weakgt):
-        self.forward_img(*img_gt_weakgt)
-        if self.initilize == False:
-            self.initialize_dummy_variables(self.score)
-        self._update_s()
-
-    def update_2(self, criterion):
         self._update_theta(criterion)
         self._update_v()
 
@@ -177,43 +139,44 @@ class AdmmSize(AdmmBase):
             self.s = np.zeros(self.img.squeeze().shape)
             return
 
-        a = 0.5 - (F.softmax(self.score, 1)[:, 1].cpu().data.numpy().squeeze() + self.v)
-        original_shape = a.shape
-        a_ = np.sort(a.ravel())
-        useful_pixel_number = (a < 0).sum()
-        if self.lowbound < useful_pixel_number and self.upbound > useful_pixel_number:
-            self.s = ((a < 0) * 1.0).reshape(original_shape)
-        elif useful_pixel_number <= self.lowbound:
-            self.s = ((a <= a_[self.lowbound + 1]) * 1.0).reshape(original_shape)
-        elif useful_pixel_number >= self.upbound:
-            self.s = ((a <= a_[self.upbound - 1] * 1.0) * 1).reshape(original_shape)
-        else:
-            raise ('something wrong here.')
-        assert self.s.shape.__len__() == 2
-        LOGGER.debug('low_band:{},up_band:{},realsize:{}, new_S_size:{}'.format(self.lowbound,self.upbound,self.img_size,self.s.sum()))
-        # assert self.lowbound <= self.s.sum() <= self.upbound
+        s_score = 0.5 - (F.softmax(self.score, 1)[:, 1].cpu().data.numpy().squeeze() + self.v)
+        original_shape = s_score[0].shape
+        for i, a in enumerate(s_score):
+            assert a.shape.__len__() == 2
+            a_ = np.sort(a.ravel())
+            useful_pixel_number = (a < 0).sum()
+            if self.lowbound[i] < useful_pixel_number and self.highbound[i] > useful_pixel_number:
+                self.s[i] = ((a < 0) * 1.0).reshape(original_shape)
+            elif useful_pixel_number <= self.lowbound[i]:
+                self.s[i] = ((a <= a_[self.lowbound[i] + 1]) * 1.0).reshape(original_shape)
+            elif useful_pixel_number >= self.highbound[i]:
+                self.s[i] = ((a <= a_[self.highbound[i] - 1] * 1.0) * 1).reshape(original_shape)
+            else:
+                raise ('something wrong here.')
+        assert self.s.shape.__len__() == 3
 
     def _update_theta(self, criterion):
 
-        for i in range(self.optim_inner_loop_num):
+        for i in range(self.OptimInnerLoopNum):
             CE_loss = criterion(self.score, self.weak_gt.squeeze(1).long())
             unlabled_loss = self.p_v / 2 * (
-                    F.softmax(self.score, dim=1)[:, 1] + torch.from_numpy(-self.s + self.v).float().to(self.device)).norm(p=2) ** 2
+                    F.softmax(self.score, dim=1)[:, 1] + torch.from_numpy(-self.s + self.v).float().to(
+                self.device)).norm(p=2) ** 2
 
             unlabled_loss /= list(self.score.reshape(-1).size())[0]
 
             loss = CE_loss + unlabled_loss
-            self.optim.zero_grad()
+            self.model.optimizer.zero_grad()
             loss.backward()
-            self.optim.step()
-
-            self.forward_img(self.img, self.gt, self.weak_gt) ## update self.score
+            self.model.optimizer.step()
+            self.score = self.model.predict(self.img, logit=False)
 
     def _update_v(self):
         new_v = self.v + (F.softmax(self.score, dim=1)[:, 1, :, :].cpu().data.numpy().squeeze() - self.s) * 0.1
         self.v = new_v
 
 
+'''
 class AdmmGCSize(AdmmSize):
     size_hparam_keys = [] + AdmmSize.size_hparam_keys
     optim_hparam_keys = [] + AdmmSize.optim_hparam_keys
@@ -359,3 +322,4 @@ class AdmmGCSize(AdmmSize):
         new_u = self.u + (F.softmax(self.score, dim=1)[:, 1, :, :].cpu().data.numpy().squeeze() - self.gamma) * 0.01
         self.u = new_u
         assert self.u.shape.__len__() == 2
+'''
