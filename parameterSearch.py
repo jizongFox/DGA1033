@@ -4,13 +4,15 @@ import torch, pandas as pd
 from admm_research.utils import tqdm_,class2one_hot
 from admm_research.dataset import loader_interface
 from admm_research.method.gc import _multiprocess_Call
-from multiprocessing import Pool
 import argparse, os
 from pathlib import Path
 import yaml
 import numpy as np
 from admm_research.metrics2 import DiceMeter
 import easydict
+from typing import Iterable,Union,Tuple
+from skimage.io import imsave
+import warnings
 
 
 def get_args():
@@ -28,7 +30,19 @@ config['Dataset']['dataset_name'] = args.name
 train_loader, _ = loader_interface(config['Dataset'], config['Dataloader'])
 
 
-def test_configuration(args):
+def save_images(segs: np.ndarray, names: Iterable[str], root: Union[str, Path],) -> None:
+    (b, w, h) = segs.shape  # type: Tuple[int, int,int] # Since we have the class numbers, we do not need a C axis
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', category=UserWarning)
+        for seg, name in zip(segs, names):
+
+            save_path = Path(root, name).with_suffix(".png")
+
+            save_path.parent.mkdir(parents=True, exist_ok=True)
+
+            imsave(str(save_path), seg)
+
+def test_configuration(args,name):
     train_loader_ = enumerate(train_loader)
     diceMeter = DiceMeter(method='2d', report_axises=[1], C=2)
     for i, ((img, gt, wgt, path), _) in train_loader_:
@@ -45,11 +59,12 @@ def test_configuration(args):
             kernelsize=args.kernal_size
         )
         diceMeter.add(class2one_hot(torch.Tensor(results),C=2).float(),gt)
+        save_images(results,root=f'parameterSearch/{name}/{str(args)}',names=[Path(p).stem for p in path])
     return diceMeter.summary()
 
 
 
-def main(user_choice):
+def main():
     report_results =[]
     sigmas = [0.001, 0.01, 0.02,  0.1, 10 ]
     kernal_sizes = [3, 5, 7]
@@ -61,12 +76,12 @@ def main(user_choice):
                     config_dicts = easydict.EasyDict({'kernal_size': k, 'lamda': l, "sigma": s})
                     config_list.append(config_dicts)
     for args_config in config_list:
-        final_dice = test_configuration(args_config)
+        final_dice = test_configuration(args_config,args.name)
         report_results.append({**args_config,**final_dice})
-        save_dir:Path =Path(f'parameter_search/{args.name}/results.csv')
+        save_dir:Path =Path(f'parameterSearch/{args.name}/results.csv')
         save_dir.parent.mkdir(exist_ok=True, parents=True)
         pd.DataFrame(report_results).to_csv(save_dir)
 
 
 if __name__ == '__main__':
-    main(get_args())
+    main()
