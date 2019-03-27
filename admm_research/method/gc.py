@@ -1,6 +1,10 @@
 import numpy as np
 import cv2
 import maxflow
+from multiprocessing.dummy import Pool
+from functools import partial
+from itertools import repeat
+
 
 def _update_gamma(img, probability, u, gt, weak_gt, lamda, sigma, kernelsize) -> np.ndarray:
     assert isinstance(img, np.ndarray)
@@ -15,7 +19,7 @@ def _update_gamma(img, probability, u, gt, weak_gt, lamda, sigma, kernelsize) ->
     assert isinstance(u, np.ndarray)
     assert u.shape.__len__() == 2
 
-    if gt.sum() == 0 :
+    if gt.sum() == 0:
         gamma = np.zeros_like(img)
         return gamma
 
@@ -71,3 +75,14 @@ def shift_matrix(matrix, kernel):
     shifted_matrix = np.roll(matrix, -dy, axis=0)
     shifted_matrix = np.roll(shifted_matrix, -dx, axis=1)
     return shifted_matrix
+
+
+# helper function to call graphcut
+import torch
+def _multiprocess_Call(imgs, scores, us, gts, weak_gts, lamda, sigma, kernelsize):
+    P = Pool()
+    results = P.starmap(_update_gamma,
+                        zip(imgs, scores, us, gts, weak_gts, repeat(lamda), repeat(sigma), repeat(kernelsize)))
+    P.close()
+    results = np.stack(results)
+    return results

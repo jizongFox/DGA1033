@@ -1,36 +1,37 @@
 from torch import nn as nn
 from admm_research.loss import CrossEntropyLoss2d
-from .ADMM import AdmmBase
+from admm_research.models import Segmentator
+from admm_research.utils import pred2segmentation
+from .ADMM_refactor import AdmmBase
+import torch
 
 
 class FullySupervisedWrapper(AdmmBase):
-    @classmethod
-    def setup_arch_flags(cls):
-        super().setup_arch_flags()
 
-    def __init__(self, torchnet: nn.Module, hparams: dict) -> None:
-        super().__init__(torchnet, hparams)
-        self.criterion = CrossEntropyLoss2d()
+    def __init__(self, model: Segmentator, device='cpu', *args,
+                 **kwargs) -> None:
+        super().__init__(model, device=device, *args, **kwargs)
+        self.criterion = nn.CrossEntropyLoss()
+        print(f'loss used here is {self.criterion}')
 
-    def reset(self, img, gt, weak):
-        pass
+    def set_input(self, img, gt, weak_gt, bounds):
+        self.img: torch.Tensor = img.to(self.device)
+        _, _, _, _ = self.img.shape
+        self.gt: torch.Tensor = gt.to(self.device)
+        _, _, _ = self.gt.shape
+        self.weak_gt: torch.Tensor = weak_gt.to(self.device)
+        self.lowbound: torch.Tensor = bounds[:, 0].to(self.device)
+        self.highbound: torch.Tensor = bounds[:, 1].to(self.device)
+        self.score: torch.Tensor = self.model.predict(img, logit=True)
+        _, _, _, _ = self.score.shape
+        self.s: torch.Tensor = pred2segmentation(self.score)  # b, w, h
+        _, _, _ = self.s.shape
+        self.v = torch.zeros_like(self.s, dtype=torch.float).to(self.device)  # b w h
+        _, _, _ = self.v.shape
 
-    def update(self, **kwargs):
-        pass
-
-    def update_1(self, img_gt_wgt):
-        (img, gt, wgt) = img_gt_wgt
-        self.optim.zero_grad()
-        pred = self.torchnet(img)
-        loss = self.criterion(pred, gt.squeeze(1))
+    def update(self, *args, **kwargs):
+        self.model.optimizer.zero_grad()
+        pred = self.model.predict(self.img, logit=True)
+        loss = self.criterion(pred, self.gt.squeeze(1))
         loss.backward()
-        self.optim.step()
-
-    def update_2(self, a):
-        pass
-
-    def _update_theta(self):
-        pass
-
-    def forward_img(self, **kwargs):
-        pass
+        self.model.optimizer.step()

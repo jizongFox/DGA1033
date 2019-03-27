@@ -96,3 +96,8 @@ def loader_interface(dataconfig_dict, loader_config_dict):
     if dataconfig_dict['dataset_name'] == 'cardiac':
         from .ACDC_helper import ACDC_dataloader
         return ACDC_dataloader(dataconfig_dict, loader_config_dict)
+    elif dataconfig_dict['dataset_name'] == 'prostate':
+        from .Prostate_helper import PROSTATE_dataloader
+        return PROSTATE_dataloader(dataconfig_dict, loader_config_dict)
+    else:
+        raise NotImplementedError

@@ -38,11 +38,9 @@ class AdmmBase(ABC):
     def save_dict(self):
         return self.torchnet.state_dict()
 
-    @abstractmethod
     def update(self, **kwargs):
         pass
 
-    @abstractmethod
     def _update_theta(self, **kwargs):
         pass
 

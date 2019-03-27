@@ -14,7 +14,7 @@ from PIL import Image, ImageOps
 from torch.utils.data import Dataset, Sampler
 from torchvision import transforms
 from pathlib import Path
-from admm_research.method import ModelMode
+from admm_research import ModelMode
 
 # sys.path.insert(0,str(Path(__file__).parent))
 default_transform = transforms.Compose([

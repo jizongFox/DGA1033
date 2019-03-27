@@ -3,7 +3,7 @@ from pprint import pprint
 from admm_research.models import Segmentator
 from admm_research.dataset import loader_interface
 from admm_research.trainer.trainer_refactor import ADMM_Trainer
-from admm_research.method.ADMM_refactor import AdmmSize,AdmmGCSize
+from admm_research.method import get_method_class
 from admm_research.loss import get_loss_fn
 import warnings
 warnings.filterwarnings('ignore')
@@ -16,7 +16,8 @@ model = Segmentator(config['Arch'], config['Optim'], config['Scheduler'])
 
 train_loader, val_loader = loader_interface(config['Dataset'], config['Dataloader'])
 
-admmmethod = AdmmGCSize(model=model, **config['ADMM_Method'])
+admmmethod = get_method_class(config['ADMM_Method']['name'])(model=model,**{k:v for k,v in config['ADMM_Method'].items() if k !='name'})
+# admmmethod = AdmmGCSize(model=model, **config['ADMM_Method'])
 
 trainer = ADMM_Trainer(
     ADMM_method=admmmethod,

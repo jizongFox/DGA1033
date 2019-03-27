@@ -3,7 +3,7 @@ from admm_research import flags, LOGGER, config_logger
 from admm_research.method import AdmmGCSize
 from admm_research.utils import extract_from_big_dict, Writter_tf, tqdm_
 from torch.utils.data import DataLoader
-from admm_research.method import ModelMode
+from admm_research import ModelMode
 import torch, os, shutil, numpy as np, pandas as pd
 from admm_research.dataset import PatientSampler
 from pathlib import Path

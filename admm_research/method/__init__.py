@@ -1,6 +1,5 @@
-from .ADMM import AdmmSize, ModelMode, AdmmGCSize
+from .ADMM_refactor import AdmmSize, AdmmGCSize
 from .fullysupervised import FullySupervisedWrapper
-from .ADMM_in import ADMM_size_inequality, ADMM_reg_size_inequality
 
 """
 Package
@@ -28,22 +27,20 @@ def _register_arch(arch, callable, alias=None):
 
 
 # Adding architecture (new architecture goes here...)
-_register_arch('admm_size', AdmmSize)
-_register_arch('admm_gc_size', AdmmGCSize)
-_register_arch('fullysupervised', FullySupervisedWrapper)
-_register_arch('admm_size_in', ADMM_size_inequality)
-_register_arch('admm_gc_size_in', ADMM_reg_size_inequality)
+_register_arch('size', AdmmSize)
+_register_arch('gc_size', AdmmGCSize)
+_register_arch('fs', FullySupervisedWrapper)
 
 """
 Public interface
 """
 
 
-def get_method(method_, torchnet, **kwargs):
-    """ Get the architecture. Return a torch.nn.Module """
-    arch_callable = ARCH_CALLABLES.get(method_)
-    assert arch_callable, "Architecture {} is not found!".format(method_)
-    return arch_callable(torchnet, kwargs)
+# def get_method(method_, torchnet, **kwargs):
+#     """ Get the architecture. Return a torch.nn.Module """
+#     arch_callable = ARCH_CALLABLES.get(method_)
+#     assert arch_callable, "Architecture {} is not found!".format(method_)
+#     return arch_callable(torchnet, kwargs)
 
 
 def get_method_class(method_, ):
