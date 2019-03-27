@@ -26,8 +26,8 @@ Scheduler:
 
 
 ADMM_Method:
-  OptimInnerLoopNum: 3
-  ADMMLoopNum: 2
+  OptimInnerLoopNum: 1
+  ADMMLoopNum: 1
   device: cuda
 
 

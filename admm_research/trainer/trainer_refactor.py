@@ -1,15 +1,17 @@
 from abc import ABC, abstractmethod
-from admm_research import flags, LOGGER, config_logger
-from admm_research.method.ADMM_refactor import AdmmBase
-from admm_research.models import Segmentator
-from admm_research.utils import extract_from_big_dict, Writter_tf, tqdm_
-from torch.utils.data import DataLoader
-from admm_research import ModelMode
-import torch, os, shutil, numpy as np, pandas as pd
-from admm_research.dataset import PatientSampler
-from torch import nn
 from pathlib import Path
+
+import os
+import torch
 import yaml
+from torch import nn
+from torch.utils.data import DataLoader
+
+from admm_research import LOGGER, config_logger
+from admm_research import ModelMode
+from admm_research.method.ADMM_refactor import AdmmBase
+from admm_research.utils import tqdm_
+from admm_research.metrics2 import DiceMeter, AverageValueMeter, AggragatedMeter
 
 
 class Base(ABC):
@@ -62,8 +64,7 @@ class ADMM_Trainer(Base):
                 yaml.dump(whole_config_dict, f, default_flow_styple=True)
         self.to(self.device)
 
-
-    def to(self,device):
+    def to(self, device):
         self.admm.to(device)
         self.criterion.to(device)
 
@@ -71,11 +72,15 @@ class ADMM_Trainer(Base):
         self.admm.model.schedulerStep()
 
     def start_training(self):
+        ## define aggregate recorder.
+        train_aggregate_dicemeter = AggragatedMeter()
 
         for epoch in range(self.begin_epoch, self.max_epoch):
-            self._main_loop(self.train_dataloader, epoch, mode=ModelMode.TRAIN)
-            with torch.no_grad():
-                f_dice, thr_dice = self._evaluate(self.val_dataloader, mode='3Ddice')
+            train_dice = self._main_loop(self.train_dataloader, epoch, mode=ModelMode.TRAIN)
+            train_aggregate_dicemeter.add(train_dice)
+            print(train_aggregate_dicemeter.summary())
+            # with torch.no_grad():
+            #     f_dice, thr_dice = self._evaluate(self.val_dataloader, mode='3Ddice')
 
         self.writer.cleanup()
 
@@ -84,13 +89,18 @@ class ADMM_Trainer(Base):
         self.admm.set_mode(mode)
         assert self.admm.model.training == True
         assert dataloader.dataset.training == ModelMode.TRAIN
+        # define recorder for one epoch
+        train_dice = DiceMeter(method='2d',report_axises=[1],C=2)
 
         for i, ((img, gt, wgt, _), size) in tqdm_(enumerate(dataloader)):
             img, gt, wgt = img.to(self.device), gt.to(self.device), wgt.to(self.device)
-            self.admm.set_input(img, gt, wgt, size[:,:,1])
+            self.admm.set_input(img, gt, wgt, size[:, :, 1])
             self.admm.update(self.criterion)
+            train_dice.add(self.admm.score,gt)
 
         LOGGER.info('%s %d complete' % (mode.value, epoch))
+        return train_dice.detailed_summary()
+
 
     def _evaluate(self, dataloader, *args, **kwargs):
         pass

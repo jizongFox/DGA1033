@@ -190,8 +190,7 @@ class AdmmGCSize(AdmmSize):
         _, _, _ = self.s.shape
         self.u = np.zeros_like(self.s.cpu())
         _, _, _ = self.u.shape
-        self.v = torch.zero
-        s_like(self.s, dtype=torch.float).to(self.device)  # b w h
+        self.v = torch.zeros_like(self.s, dtype=torch.float).to(self.device)  # b w h
         _, _, _ = self.v.shape
 
     def update(self, criterion):
@@ -201,8 +200,8 @@ class AdmmGCSize(AdmmSize):
             self._update_theta(criterion)
             self._update_u()
             self._update_v()
-            self.show('gamma',fig_num=1)
-            self.show('s',fig_num=2)
+            # self.show('gamma',fig_num=1)
+            # self.show('s',fig_num=2)
 
     def _update_gamma(self):
         new_gamma = _multiprocess_Call(self.img.cpu().numpy().squeeze(1),
