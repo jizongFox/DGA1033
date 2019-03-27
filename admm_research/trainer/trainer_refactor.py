@@ -11,7 +11,7 @@ from admm_research import LOGGER, config_logger
 from admm_research import ModelMode
 from admm_research.method.ADMM_refactor import AdmmBase
 from admm_research.utils import tqdm_
-from admm_research.metrics2 import DiceMeter, AverageValueMeter, AggragatedMeter
+from admm_research.metrics2 import DiceMeter, AverageValueMeter, AggragatedMeter, ListAggregatedMeter
 
 
 class Base(ABC):
@@ -22,9 +22,9 @@ class Base(ABC):
     def start_training(self, *args, **kwargs):
         raise NotImplementedError
 
-    @abstractmethod
-    def _evaluate(self, dataloader, *args, **kwargs):
-        raise NotImplementedError
+    # @abstractmethod
+    # def _evaluate(self, dataloader, *args, **kwargs):
+    #     raise NotImplementedError
 
     @abstractmethod
     def _main_loop(self, dataloader, epoch, mode, *args, **kwargs):
@@ -74,15 +74,28 @@ class ADMM_Trainer(Base):
     def start_training(self):
         ## define aggregate recorder.
         train_aggregate_dicemeter = AggragatedMeter()
+        val_aggregate_dicemeter = AggragatedMeter()
+        val_aggregate_bdicemeter = AggragatedMeter()
+        listed_aggregated_meters = ListAggregatedMeter(
+            listAggregatedMeter=[train_aggregate_dicemeter, val_aggregate_dicemeter, val_aggregate_bdicemeter],
+            names=['train', 'val', 'val_b'])
 
         for epoch in range(self.begin_epoch, self.max_epoch):
             train_dice = self._main_loop(self.train_dataloader, epoch, mode=ModelMode.TRAIN)
             train_aggregate_dicemeter.add(train_dice)
-            print(train_aggregate_dicemeter.summary())
-            # with torch.no_grad():
-            #     f_dice, thr_dice = self._evaluate(self.val_dataloader, mode='3Ddice')
+            with torch.no_grad():
+                val_dice, val_bdice = self._eval_loop(val_dataloader=self.val_dataloader, epoch=epoch,
+                                                      mode=ModelMode.EVAL)
+            val_aggregate_dicemeter.add(val_dice)
+            val_aggregate_bdicemeter.add(val_bdice)
 
-        self.writer.cleanup()
+            # save results:
+            listed_aggregated_meters.summary().to_csv(self.save_dir/'summary.csv')
+
+            self.schedulerstep()
+            self.checkpoint(dice=val_dice.get('DSC1'),epoch=epoch)
+
+
 
     def _main_loop(self, dataloader, epoch, mode, *args, **kwargs):
         dataloader.dataset.set_mode(mode)
@@ -90,20 +103,35 @@ class ADMM_Trainer(Base):
         assert self.admm.model.training == True
         assert dataloader.dataset.training == ModelMode.TRAIN
         # define recorder for one epoch
-        train_dice = DiceMeter(method='2d',report_axises=[1],C=2)
+        train_dice = DiceMeter(method='2d', report_axises=[1], C=2)
 
         for i, ((img, gt, wgt, _), size) in tqdm_(enumerate(dataloader)):
             img, gt, wgt = img.to(self.device), gt.to(self.device), wgt.to(self.device)
             self.admm.set_input(img, gt, wgt, size[:, :, 1])
             self.admm.update(self.criterion)
-            train_dice.add(self.admm.score,gt)
+            train_dice.add(self.admm.score, gt)
 
         LOGGER.info('%s %d complete' % (mode.value, epoch))
-        return train_dice.detailed_summary()
+        return train_dice.summary()
 
+    def _eval_loop(self, val_dataloader, epoch, mode=ModelMode.EVAL):
+        val_dataloader.dataset.set_mode(mode)
+        self.admm.set_mode(mode)
+        assert self.admm.model.training == False
+        assert val_dataloader.dataset.training == ModelMode.EVAL
+        # define recorder for one epoch
+        val_dice = DiceMeter(method='2d', report_axises=[1], C=2)
+        val_bdice = DiceMeter(method='3d', report_axises=[1], C=2)
 
-    def _evaluate(self, dataloader, *args, **kwargs):
-        pass
+        for i, ((img, gt, wgt, _), size) in tqdm_(enumerate(val_dataloader)):
+            img, gt, wgt = img.to(self.device), gt.to(self.device), wgt.to(self.device)
+            pred = self.admm.model.predict(img, logit=False)
+            val_dice.add(pred_logit=pred, gt=gt)
+            val_bdice.add(pred, gt)
+
+        LOGGER.info('%s %d complete' % (mode.value, epoch))
+        return val_dice.summary(), val_bdice.summary()
+
 
     def checkpoint(self, dice, epoch):
         try:
@@ -111,10 +139,13 @@ class ADMM_Trainer(Base):
         except:
             self.best_dice = -1
 
+        dict = {}
+        dict['model'] = self.admm.model.state_dict
+        dict['epoch'] = epoch
+        dict['dice'] = dice
+        torch.save(dict, os.path.join(self.save_dir, 'last.pth'))
+
         if dice >= self.best_dice:
             self.best_dice = dice
-            dict = {}
-            dict['model'] = self.admm.save_dict
-            dict['epoch'] = epoch
-            dict['dice'] = dice
-            torch.save(dict, os.path.join(self.writer_name, 'best.pth'))
+            torch.save(dict, os.path.join(self.save_dir, 'best.pth'))
+            print('save best checkpoint')
