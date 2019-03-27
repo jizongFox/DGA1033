@@ -22,6 +22,8 @@ trainer = ADMM_Trainer(
     ADMM_method=admmmethod,
     train_dataloader=train_loader,
     val_dataloader=val_loader,
-    criterion=get_loss_fn(config['Loss']['name'])
+    criterion=get_loss_fn(config['Loss']['name']),
+    whole_config_dict=config,
+    **config['Trainer']
 )
 trainer.start_training()

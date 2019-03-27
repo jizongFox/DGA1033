@@ -1,6 +1,6 @@
 Dataset:
   dataset_name: 'cardiac'
-  use_data_aug: False
+  use_data_aug: True
   metainfoGenerator_dict:
     name: IndividualBoundGenerator
     eps: 0.05
@@ -29,7 +29,9 @@ ADMM_Method:
   OptimInnerLoopNum: 1
   ADMMLoopNum: 1
   device: cuda
-
+Trainer:
+  save_dir: runs/first_try
+  max_epoch: 300
 
 Loss:
   name: partial_ce

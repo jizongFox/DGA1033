@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 from admm_research import LOGGER, config_logger
 from admm_research import ModelMode
 from admm_research.method.ADMM_refactor import AdmmBase
-from admm_research.utils import tqdm_
+from admm_research.utils import tqdm_, flatten_dict
 from admm_research.metrics2 import DiceMeter, AverageValueMeter, AggragatedMeter, ListAggregatedMeter
 
 
@@ -42,14 +42,14 @@ class Base(ABC):
 class ADMM_Trainer(Base):
 
     def __init__(self, ADMM_method: AdmmBase, train_dataloader: DataLoader, val_dataloader: DataLoader,
-                 criterion: nn.Module, save_dir: str = 'tmp', max_epcoh: int = 3, checkpoint=None,
+                 criterion: nn.Module, save_dir: str = 'tmp', max_epoch: int = 3, checkpoint=None,
                  whole_config_dict=None) -> None:
         super().__init__()
         self.admm = ADMM_method
         self.train_dataloader = train_dataloader
         self.val_dataloader = val_dataloader
         self.criterion = criterion
-        self.max_epoch = max_epcoh
+        self.max_epoch = max_epoch
         self.begin_epoch = 0
         self.save_dir = Path(save_dir)
         self.save_dir.mkdir(parents=True, exist_ok=True)
@@ -61,7 +61,7 @@ class ADMM_Trainer(Base):
         if whole_config_dict:
             self.whole_config = whole_config_dict
             with open(self.save_dir / 'config.yaml', 'w') as f:
-                yaml.dump(whole_config_dict, f, default_flow_styple=True)
+                yaml.dump(whole_config_dict, f,)
         self.to(self.device)
 
     def to(self, device):
@@ -104,14 +104,19 @@ class ADMM_Trainer(Base):
         assert dataloader.dataset.training == ModelMode.TRAIN
         # define recorder for one epoch
         train_dice = DiceMeter(method='2d', report_axises=[1], C=2)
+        dataloader_ = tqdm_(dataloader)
 
-        for i, ((img, gt, wgt, _), size) in tqdm_(enumerate(dataloader)):
+        for i, ((img, gt, wgt, _), size) in enumerate(dataloader_):
             img, gt, wgt = img.to(self.device), gt.to(self.device), wgt.to(self.device)
             self.admm.set_input(img, gt, wgt, size[:, :, 1])
             self.admm.update(self.criterion)
             train_dice.add(self.admm.score, gt)
 
-        LOGGER.info('%s %d complete' % (mode.value, epoch))
+            report_dict = train_dice.summary()
+            dataloader_.set_postfix(report_dict)
+        report_dict = train_dice.summary()
+        string_dict = f', '.join([f"{k}:{v:.3f}" for k,v in report_dict.items()])
+        print(f'Training   epoch: {epoch} -> {string_dict}')
         return train_dice.summary()
 
     def _eval_loop(self, val_dataloader, epoch, mode=ModelMode.EVAL):
@@ -122,14 +127,17 @@ class ADMM_Trainer(Base):
         # define recorder for one epoch
         val_dice = DiceMeter(method='2d', report_axises=[1], C=2)
         val_bdice = DiceMeter(method='3d', report_axises=[1], C=2)
-
-        for i, ((img, gt, wgt, _), size) in tqdm_(enumerate(val_dataloader)):
+        val_dataloader_ = tqdm_(val_dataloader)
+        for i, ((img, gt, wgt, _), size) in enumerate(val_dataloader_):
             img, gt, wgt = img.to(self.device), gt.to(self.device), wgt.to(self.device)
             pred = self.admm.model.predict(img, logit=False)
             val_dice.add(pred_logit=pred, gt=gt)
             val_bdice.add(pred, gt)
-
-        LOGGER.info('%s %d complete' % (mode.value, epoch))
+            report_dict = flatten_dict({'':val_dice.summary(),'b':val_bdice.summary()},sep='')
+            val_dataloader_.set_postfix(report_dict)
+        report_dict = flatten_dict({'':val_dice.summary(),'b':val_bdice.summary()},sep='')
+        string_dict = f', '.join([f"{k}:{v:.3f}" for k,v in report_dict.items()])
+        print(f'Validating epoch: {epoch} -> {string_dict}')
         return val_dice.summary(), val_bdice.summary()
 
 
@@ -148,4 +156,3 @@ class ADMM_Trainer(Base):
         if dice >= self.best_dice:
             self.best_dice = dice
             torch.save(dict, os.path.join(self.save_dir, 'best.pth'))
-            print('save best checkpoint')

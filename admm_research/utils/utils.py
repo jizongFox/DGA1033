@@ -11,7 +11,7 @@ from  tqdm import tqdm
 use_gpu = True
 device = torch.device('cuda') if torch.cuda.is_available() and use_gpu else torch.device('cpu')
 
-tqdm_ = partial(tqdm, ncols=175,
+tqdm_ = partial(tqdm, ncols=75,
                 leave=False,
                 bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [' '{rate_fmt}{postfix}]')
 
@@ -447,3 +447,14 @@ def probs2one_hot(probs: Tensor) -> Tensor:
     assert one_hot(res)
 
     return res
+
+import collections
+def flatten_dict(d, parent_key='', sep='_'):
+    items = []
+    for k, v in d.items():
+        new_key = parent_key + sep + k if parent_key else k
+        if isinstance(v, collections.MutableMapping):
+            items.extend(flatten_dict(v, new_key, sep=sep).items())
+        else:
+            items.append((new_key, v))
+    return dict(items)
