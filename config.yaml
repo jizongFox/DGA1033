@@ -3,7 +3,7 @@ Dataset:
   use_data_aug: False
   metainfoGenerator_dict:
     name: IndividualBoundGenerator
-    eps: 0.05
+    eps: 0.1
 
 Dataloader:
   num_workers: 8

@@ -17,7 +17,6 @@ model = Segmentator(config['Arch'], config['Optim'], config['Scheduler'])
 train_loader, val_loader = loader_interface(config['Dataset'], config['Dataloader'])
 
 admmmethod = get_method_class(config['ADMM_Method']['name'])(model=model,**{k:v for k,v in config['ADMM_Method'].items() if k !='name'})
-# admmmethod = AdmmGCSize(model=model, **config['ADMM_Method'])
 
 trainer = ADMM_Trainer(
     ADMM_method=admmmethod,
