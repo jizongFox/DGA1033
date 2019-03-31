@@ -22,7 +22,7 @@ def get_args():
 
 
 parser_args = get_args()
-with open('config.yaml') as f:
+with open('config_ACDC.yaml') as f:
     config = yaml.load(f, )
 config['Dataset']['dataset_name'] = parser_args.name
 
@@ -47,7 +47,7 @@ def test_configuration(args, parser_args):
     for i, ((img, gt, wgt, path), bounds) in train_loader_:
         # if gt.sum() == 0 or wgt.sum() == 0:
         #     continue
-        results:np.ndarray = _multiprocess_Call(
+        results: np.ndarray = _multiprocess_Call(
             imgs=img.squeeze(1).numpy(),
             scores=0.5 * np.ones(shape=[img.shape[0], 2, img.shape[2], img.shape[3]]),
             us=np.zeros_like(img.squeeze(1)),
@@ -66,7 +66,7 @@ def test_configuration(args, parser_args):
 
 def main():
     report_results = []
-    sigmas = [0.0001, 0.005, 0.001]
+    sigmas = [0.0001, 0.0005, 0.001]
     kernal_sizes = [3, 5]
     lamdas = [0.1, 0, 1, 10]
     # sigmas = [0.0001]

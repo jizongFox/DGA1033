@@ -19,7 +19,7 @@ Optim:
   weight_decay: 0.00001
 Scheduler:
   name: StepLR
-  step_size: 100
+  step_size: 150
   gamma: 0.1
 
 ADMM_Method:
@@ -29,16 +29,16 @@ ADMM_Method:
   device: cuda
   visualization: False
 
-
 # add the following parameters in argparser
-#  lamda: 1
-#  sigma: 0.001
-#  kernel_size: 3
+#  lamda: 0.5
+#  sigma: 0.005
+#  kernel_size: 5
 
 Trainer:
-  save_dir: runs/first_try
-  max_epoch: 300
-  use_tqdm: False
+  save_dir: runs/prostate
+  max_epoch: 500
+  use_tqdm: True
+#  checkpoint: runs/first_try
 
 Loss:
   name: partial_ce

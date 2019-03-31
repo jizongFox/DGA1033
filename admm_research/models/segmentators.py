@@ -88,6 +88,7 @@ class Segmentator(ABC):
             )
         self.optimizer.load_state_dict(state_dict['optim_state_dict'])
         self.scheduler.load_state_dict(state_dict['scheduler_state_dict'])
+        return self
 
     def to(self, device: torch.device):
         self.torchnet.to(device)

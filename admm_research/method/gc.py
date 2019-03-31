@@ -125,7 +125,7 @@ def _update_gamma_CD_method3(img, probability, u, gt, weak_gt, lamda, sigma, ker
 
     assert bounds[0] <= gt.sum() <= bounds[1]
 
-    if gt.sum() == 0:
+    if gt.sum() == 0 or weak_gt.sum()==0:
         gamma = np.zeros_like(img)
         return gamma
 
@@ -223,6 +223,9 @@ def _update_gamma(img, probability, u, gt, weak_gt, lamda, sigma, kernelsize, bo
 
 
 def _set_boundary_term(g, nodeids, img, lumda, sigma, kernelsize):
+    lumda = float(lumda)
+    sigma = float(sigma)
+    kernelsize = int (kernelsize)
     kernel = np.ones((kernelsize, kernelsize))
     kernel[int(kernel.shape[0] / 2), int(kernel.shape[1] / 2)] = 0
     transfer_function = lambda pixel_difference: lumda * np.exp((-1 / sigma ** 2) * pixel_difference ** 2)
@@ -258,7 +261,7 @@ def shift_matrix(matrix, kernel):
 
 def _multiprocess_Call(imgs, scores, us, gts, weak_gts, lamda, sigma, kernelsize, bounds, method='method3'):
     assert method in ('oracle','method1','method3'),"method should be in 'oracle','method1','method3'"
-    P = Pool(8)
+    P = Pool(4)
     if method == 'oracle':
         results = P.starmap(_update_gamma_CD_oracle,
                         zip(imgs, scores, us, gts, weak_gts, repeat(lamda), repeat(sigma), repeat(kernelsize), bounds))

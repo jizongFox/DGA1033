@@ -11,7 +11,7 @@ from tqdm import tqdm
 use_gpu = True
 device = torch.device('cuda') if torch.cuda.is_available() and use_gpu else torch.device('cpu')
 
-tqdm_ = partial(tqdm, ncols=75,
+tqdm_ = partial(tqdm, ncols=25,
                 leave=False,
                 bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [' '{rate_fmt}{postfix}]')
 

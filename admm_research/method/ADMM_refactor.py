@@ -86,6 +86,21 @@ class AdmmBase(ABC):
     def to(self, device):
         self.model.to(device)
 
+    @property
+    def state_dict(self):
+        model_state_dict = self.model.state_dict
+        return {**{key: value for key, value in self.__dict__.items() if key != 'model'}, **{'model':model_state_dict}}
+
+    def load_state_dict(self, state_dict):
+        """Loads the schedulers state.
+
+        Arguments:
+            state_dict (dict): scheduler state. Should be an object returned
+                from a call to :meth:`state_dict`.
+        """
+        model = Segmentator.load_state_dict(self.model,state_dict['model'])
+        self.model=model
+        self.__dict__.update({k:v for k,v in state_dict.items() if k!='model'})
 
 class AdmmSize(AdmmBase):
 
@@ -120,10 +135,6 @@ class AdmmSize(AdmmBase):
             if self.visualization:
                 self.show('s', fig_num=1)
                 self.show('v', fig_num=2)
-            # time1 = time.time()
-            # results = _multiprocess_Call(self.img.cpu().numpy().squeeze(1), F.softmax(self.score.detach(), 1).cpu().numpy(),
-            #                          self.v.cpu().numpy(), self.gt.cpu().numpy(), self.weak_gt.cpu().numpy())
-            # print(f'time used for gc of batch {self.img.shape[0]}: {time.time()-time1}')
 
     def _update_s_torch(self):
         s_score = 0.5 - (F.softmax(self.score, 1)[:, 1].squeeze() + self.v)
@@ -172,7 +183,7 @@ class AdmmSize(AdmmBase):
 class AdmmGCSize(AdmmSize):
 
     def __init__(self, model: Segmentator, OptimInnerLoopNum: int = 1, ADMMLoopNum: int = 2,
-                 device: str = 'cpu', lamda=10, sigma=0.02, kernel_size=3, visualization=False) -> None:
+                 device: str = 'cpu', lamda=0.5, sigma=0.005, kernel_size=5, visualization=False) -> None:
         super().__init__(model, OptimInnerLoopNum, ADMMLoopNum, device, visualization=visualization)
         self.lamda = lamda
         self.sigma = sigma

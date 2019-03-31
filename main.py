@@ -1,12 +1,14 @@
 import yaml
 from pprint import pprint
+from pathlib import Path
 from admm_research.models import Segmentator
 from admm_research.dataset import loader_interface
 from admm_research.trainer.trainer_refactor import ADMM_Trainer
 from admm_research.method import get_method_class
 from admm_research.loss import get_loss_fn
-from admm_research.utils import yaml_parser,dict_merge
+from admm_research.utils import yaml_parser, dict_merge
 import warnings
+
 warnings.filterwarnings('ignore')
 
 parser_args = yaml_parser()
@@ -15,6 +17,15 @@ pprint(parser_args)
 with open('config.yaml') as f:
     config = yaml.load(f, )
 config = dict_merge(config, parser_args, True)
+# overwrite the checkpoint config
+try:
+    if config.get('Trainer',{}).get('checkpoint',{}) is not None:
+        with open(f"{Path(config['Trainer']['checkpoint']) / 'config_ACDC.yaml'}") as f:
+            config = yaml.load(f, )
+        config = dict_merge(config, parser_args, True)
+except (KeyError, FileNotFoundError) as e:
+    print(f'Load saved config file failed with error: {e}, using initial config+argparser.')
+
 print('>>Merged args:')
 pprint(config)
 
@@ -22,7 +33,9 @@ model = Segmentator(config['Arch'], config['Optim'], config['Scheduler'])
 
 train_loader, val_loader = loader_interface(config['Dataset'], config['Dataloader'])
 
-admmmethod = get_method_class(config['ADMM_Method']['name'])(model=model,**{k:v for k,v in config['ADMM_Method'].items() if k !='name'})
+admmmethod = get_method_class(config['ADMM_Method']['name'])(model=model,
+                                                             **{k: v for k, v in config['ADMM_Method'].items() if
+                                                                k != 'name'})
 
 trainer = ADMM_Trainer(
     ADMM_method=admmmethod,

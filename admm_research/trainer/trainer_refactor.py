@@ -6,6 +6,7 @@ import torch
 import yaml
 from torch import nn
 from torch.utils.data import DataLoader
+from easydict import EasyDict as edict
 
 from admm_research import LOGGER, config_logger
 from admm_research import ModelMode
@@ -31,7 +32,7 @@ class Base(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def checkpoint(self, *args, **kwargs):
+    def save_checkpoint(self, *args, **kwargs):
         raise NotImplementedError
 
     # @abstractmethod
@@ -55,12 +56,19 @@ class ADMM_Trainer(Base):
         self.save_dir.mkdir(parents=True, exist_ok=True)
         config_logger(self.save_dir)
         self.device = self.admm.device
-        if checkpoint is not None:
-            self.load_checkpoint(checkpoint)
 
-        if whole_config_dict:
+        self.checkpoint=None
+        if checkpoint is not None:
+            try:
+                self.checkpoint=checkpoint
+                self.load_checkpoint(checkpoint)
+            except Exception as e:
+                print(f'Loading checkpoint failed with {e}.')
+
+        self.whole_config=None
+        if whole_config_dict is not None:
             self.whole_config = whole_config_dict
-            with open(self.save_dir / 'config.yaml', 'w') as f:
+            with open(self.save_dir / 'config_ACDC.yaml', 'w') as f:
                 yaml.dump(whole_config_dict, f,)
         self.to(self.device)
         self.use_tqdm=use_tqdm
@@ -73,28 +81,35 @@ class ADMM_Trainer(Base):
         self.admm.model.schedulerStep()
 
     def start_training(self):
-        ## define aggregate recorder.
-        train_aggregate_dicemeter = AggragatedMeter()
-        val_aggregate_dicemeter = AggragatedMeter()
-        val_aggregate_bdicemeter = AggragatedMeter()
-        listed_aggregated_meters = ListAggregatedMeter(
-            listAggregatedMeter=[train_aggregate_dicemeter, val_aggregate_dicemeter, val_aggregate_bdicemeter],
-            names=['train', 'val', 'val_b'])
+        METERS = edict()
+        METERS.tra_2d_dice = AggragatedMeter()
+        METERS.val_2d_dice = AggragatedMeter()
+        METERS.val_3d_dice = AggragatedMeter()
+        wholeMeter = ListAggregatedMeter(names=list(METERS.keys()), listAggregatedMeter=list(METERS.values()))
+        # try to load the saved meters
+        if self.checkpoint is not None:
+            try:
+                wholeMeter.load_state_dict(torch.load(Path(self.checkpoint)/'last.pth',map_location=torch.device('cpu'))['meter'])
+            except Exception as e:
+                print(f'Loading meter historical record failed with {e}.')
 
-        for epoch in range(self.begin_epoch, self.max_epoch):
-            train_dice = self._main_loop(self.train_dataloader, epoch, mode=ModelMode.TRAIN)
-            train_aggregate_dicemeter.add(train_dice)
+
+        Path(self.save_dir, 'meters').mkdir(exist_ok=True)
+
+        for epoch in range(self.begin_epoch+1, self.max_epoch+1):
+            tra_2d_dice = self._main_loop(self.train_dataloader, epoch, mode=ModelMode.TRAIN)
             with torch.no_grad():
-                val_dice, val_bdice = self._eval_loop(val_dataloader=self.val_dataloader, epoch=epoch,
+                val_2d_dice, val_3d_dice = self._eval_loop(val_dataloader=self.val_dataloader, epoch=epoch,
                                                       mode=ModelMode.EVAL)
-            val_aggregate_dicemeter.add(val_dice)
-            val_aggregate_bdicemeter.add(val_bdice)
 
             # save results:
-            listed_aggregated_meters.summary().to_csv(self.save_dir/'summary.csv')
-
+            for k, v in METERS.items():
+                v.add(eval(k))
+            for k, v in METERS.items():
+                v.summary().to_csv(Path(self.save_dir, 'meters', f'{k}.csv'))
+            wholeMeter.summary().to_csv(Path(self.save_dir, f'wholeMeter.csv'))
             self.schedulerstep()
-            self.checkpoint(dice=val_dice.get('DSC1'),epoch=epoch)
+            self.save_checkpoint(dice=val_3d_dice.get('DSC1'),epoch=epoch,meters=wholeMeter)
 
 
 
@@ -146,18 +161,35 @@ class ADMM_Trainer(Base):
         return val_dice.summary(), val_bdice.summary()
 
 
-    def checkpoint(self, dice, epoch):
+    def save_checkpoint(self, dice, epoch,meters):
         try:
             getattr(self, 'best_dice')
         except:
             self.best_dice = -1
+        save_best=False
+        if dice>=self.best_dice:
+            self.best_dice=dice
+            save_best=True
 
         dict = {}
-        dict['model'] = self.admm.model.state_dict
+        # dict['model'] = self.admm.model.state_dict
         dict['epoch'] = epoch
-        dict['dice'] = dice
+        dict['meter'] = meters.state_dict
+        dict['ADMM'] = self.admm.state_dict
+        dict['best']=self.best_dice
         torch.save(dict, os.path.join(self.save_dir, 'last.pth'))
-
-        if dice >= self.best_dice:
-            self.best_dice = dice
+        if save_best:
             torch.save(dict, os.path.join(self.save_dir, 'best.pth'))
+
+
+    # todo modify
+    def load_checkpoint(self,checkpoint):
+
+        state_dict = torch.load(Path(checkpoint)/'last.pth',map_location=torch.device('cpu'))
+
+        self.admm.load_state_dict(state_dict['ADMM'])
+
+        self.begin_epoch = state_dict['epoch']
+        self.best_dice = state_dict['best']
+        print(f'loaded checkpoint: {checkpoint} '
+              f'Best score:{self.best_dice:.3f} with run epoch: {self.begin_epoch}')

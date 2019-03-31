@@ -3,7 +3,7 @@ gpu_num=$1
 eps=$2
 max_epoch=500
 use_data_aug=False
-save_dir=ACDC
+save_dir=PROSTATE
 use_tqdm=True
 set -e
 
@@ -20,8 +20,9 @@ cd ../
 run_fs(){
 rm -rf "runs/${save_dir}/fs"
 CUDA_VISIBLE_DEVICES=${gpu_num} python main.py  \
+Arch.name=cnet \
 Trainer.save_dir="runs/${save_dir}/fs" \
-Dataset.dataset_name=cardiac \
+Dataset.dataset_name=prostate \
 Dataset.use_data_aug=$use_data_aug \
 ADMM_Method.name=fs \
 Trainer.max_epoch=${max_epoch} \
@@ -29,12 +30,14 @@ Trainer.use_tqdm=${use_tqdm}
 rm -rf "archives/${save_dir}/fs"
 mv -f "runs/${save_dir}/fs" "archives/${save_dir}"
 }
+
 ## size
 run_size(){
 rm -rf "runs/${save_dir}/size"
 CUDA_VISIBLE_DEVICES=${gpu_num} python main.py  \
+Arch.name=cnet \
 Trainer.save_dir="runs/${save_dir}/size" \
-Dataset.dataset_name=cardiac \
+Dataset.dataset_name=prostate \
 Dataset.use_data_aug=$use_data_aug \
 Dataset.metainfoGenerator_dict.eps=${eps} \
 ADMM_Method.name=size \
@@ -47,8 +50,9 @@ mv -f "runs/${save_dir}/size" "archives/${save_dir}"
 run_gc_size(){
 rm -rf "runs/${save_dir}/gc_size"
 CUDA_VISIBLE_DEVICES=${gpu_num} python main.py  \
+Arch.name=cnet \
 Trainer.save_dir="runs/${save_dir}/gc_size" \
-Dataset.dataset_name=cardiac \
+Dataset.dataset_name=prostate \
 Dataset.use_data_aug=$use_data_aug \
 Dataset.metainfoGenerator_dict.eps=${eps} \
 ADMM_Method.name=gc_size \
@@ -60,10 +64,14 @@ Trainer.use_tqdm=${use_tqdm}
 rm -rf "archives/${save_dir}/gc_size"
 mv -f "runs/${save_dir}/gc_size" "archives/${save_dir}"
 }
+
+
+
 mkdir -p "archives/${save_dir}"
-run_fs &
-run_size &
+run_fs
+run_size
 wait_script
 run_gc_size
 
 python admm_research/postprocessing/plot.py --folders "archives/${save_dir}/fs" "archives/${save_dir}/size" "archives/${save_dir}/gc_size" --file=wholeMeter.csv --classes tra_2d_dice_DSC1 val_2d_dice_DSC1 val_3d_dice_DSC1
+
