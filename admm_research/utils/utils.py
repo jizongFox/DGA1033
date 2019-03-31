@@ -1,20 +1,19 @@
-import torch, torch.nn.functional as F
-import numpy as np, pandas as pd, matplotlib.pyplot as plt
-import maxflow
-from PIL import Image
 from functools import partial
-import cv2, os
+
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
+import torch.nn.functional as F
 from torchnet.meter import AverageValueMeter
-import copy
-from torchvision.utils import save_image, make_grid
-from  tqdm import tqdm
+from torchvision.utils import make_grid
+from tqdm import tqdm
+
 use_gpu = True
 device = torch.device('cuda') if torch.cuda.is_available() and use_gpu else torch.device('cpu')
 
 tqdm_ = partial(tqdm, ncols=75,
                 leave=False,
                 bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [' '{rate_fmt}{postfix}]')
-
 
 
 def colormap(n):
@@ -154,12 +153,10 @@ def show_image_mask(*args):
     plt.show()
 
 
-
-
 # fns
 from torch import Tensor, einsum
 from functools import partial
-from typing import Any, Callable, Iterable, List, Set, Tuple, TypeVar, Union
+from typing import Callable, Iterable, List, Set, Tuple, TypeVar, Union
 
 A = TypeVar("A")
 B = TypeVar("B")
@@ -285,7 +282,10 @@ def probs2one_hot(probs: Tensor) -> Tensor:
 
     return res
 
+
 import collections
+
+
 def flatten_dict(d, parent_key='', sep='_'):
     items = []
     for k, v in d.items():
@@ -301,6 +301,7 @@ import warnings
 from pathlib import Path
 from skimage.io import imsave
 
+
 def save_images(segs: Tensor, names: Iterable[str], root: Union[str, Path], mode: str, iter: int, seg_num=None) -> None:
     (b, w, h) = segs.shape  # type: Tuple[int, int,int] # Since we have the class numbers, we do not need a C axis
     with warnings.catch_warnings():
@@ -314,3 +315,83 @@ def save_images(segs: Tensor, names: Iterable[str], root: Union[str, Path], mode
             save_path.parent.mkdir(parents=True, exist_ok=True)
 
             imsave(str(save_path), seg.cpu().numpy())
+
+
+# argparser
+import argparse
+from functools import reduce
+from copy import deepcopy as dcopy
+
+
+def yaml_parser() -> dict:
+    parser = argparse.ArgumentParser('Augment parser for yaml config')
+    parser.add_argument('strings', nargs='*', type=str, default=[''])
+
+    args: argparse.Namespace = parser.parse_args()
+    args: dict = _parser(args.strings)
+    # pprint(args)
+    return args
+
+
+def _parser(strings: List[str]) -> List[dict]:
+    assert isinstance(strings, list)
+    ## no doubled augments
+    assert set(map_(lambda x: x.split('=')[0], strings)).__len__() == strings.__len__(), 'Augment doubly input.'
+    args: List[dict] = [_parser_(s) for s in strings]
+    args = reduce(lambda x, y: dict_merge(x, y, True), args)
+    return args
+
+
+def _parser_(input_string: str) -> Union[dict, None]:
+    if input_string.__len__() == 0:
+        return None
+    assert input_string.find('=') > 0, f"Input args should include '=' to include the value"
+    keys, value = input_string.split('=')[:-1][0].replace(' ', ''), input_string.split('=')[1].replace(' ', '')
+    keys = keys.split('.')
+    keys.reverse()
+    for k in keys:
+        d = {}
+        d[k] = value
+        value = dcopy(d)
+    return dict(value)
+
+
+## dictionary functions
+def flatten_dict(d, parent_key='', sep='_'):
+    items = []
+    for k, v in d.items():
+        new_key = parent_key + sep + k if parent_key else k
+        if isinstance(v, collections.MutableMapping):
+            items.extend(flatten_dict(v, new_key, sep=sep).items())
+        else:
+            items.append((new_key, v))
+    return dict(items)
+
+
+def dict_merge(dct: dict, merge_dct: dict, re=False):
+    """ Recursive dict merge. Inspired by :meth:``dict.update()``, instead of
+    updating only top-level keys, dict_merge recurses down into dicts nested
+    to an arbitrary depth, updating keys. The ``merge_dct`` is merged into
+    ``dct``.
+    :param dct: dict onto which the merge is executed
+    :param merge_dct: dct merged into dct
+    :return: None
+    """
+    # dct = dcopy(dct)
+    if merge_dct is None:
+        if re:
+            return dct
+        else:
+            return
+    for k, v in merge_dct.items():
+        if (k in dct and isinstance(dct[k], dict)
+                and isinstance(merge_dct[k], collections.Mapping)):
+            dict_merge(dct[k], merge_dct[k])
+        else:
+            try:
+                dct[k] = type(dct[k])(eval(merge_dct[k])) if type(dct[k]) in (bool, list) else type(dct[k])(
+                    merge_dct[k])
+            except:
+                dct[k] = merge_dct[k]
+    if re:
+        return dcopy(dct)

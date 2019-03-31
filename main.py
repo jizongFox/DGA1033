@@ -5,11 +5,17 @@ from admm_research.dataset import loader_interface
 from admm_research.trainer.trainer_refactor import ADMM_Trainer
 from admm_research.method import get_method_class
 from admm_research.loss import get_loss_fn
+from admm_research.utils import yaml_parser,dict_merge
 import warnings
 warnings.filterwarnings('ignore')
 
+parser_args = yaml_parser()
+print('->>Input args:')
+pprint(parser_args)
 with open('config.yaml') as f:
     config = yaml.load(f, )
+config = dict_merge(config, parser_args, True)
+print('>>Merged args:')
 pprint(config)
 
 model = Segmentator(config['Arch'], config['Optim'], config['Scheduler'])

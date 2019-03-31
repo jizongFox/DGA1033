@@ -5,7 +5,7 @@ from multiprocessing.dummy import Pool
 from itertools import repeat
 import matplotlib.pyplot as plt
 import imutils
-from scipy.special import softmax
+# from scipy.special import softmax
 
 def _update_gamma_CD_oracle(img, probability, u, gt, weak_gt, lamda, sigma, kernelsize, bounds) -> np.ndarray:
     assert isinstance(img, np.ndarray)
@@ -256,7 +256,7 @@ def shift_matrix(matrix, kernel):
 
 # helper function to call graphcut
 
-def _multiprocess_Call(imgs, scores, us, gts, weak_gts, lamda, sigma, kernelsize, bounds, method):
+def _multiprocess_Call(imgs, scores, us, gts, weak_gts, lamda, sigma, kernelsize, bounds, method='method3'):
     assert method in ('oracle','method1','method3'),"method should be in 'oracle','method1','method3'"
     P = Pool(8)
     if method == 'oracle':

@@ -12,7 +12,7 @@ from itertools import repeat
 from admm_research import ModelMode
 from admm_research.models import Segmentator
 from admm_research.utils import pred2segmentation
-from .gc import _update_gamma
+from .gc import _multiprocess_Call
 
 
 class AdmmBase(ABC):
@@ -21,6 +21,8 @@ class AdmmBase(ABC):
                  OptimInnerLoopNum: int = 1,
                  ADMMLoopNum: int = 2,
                  device='cpu',
+                 visualization=False,
+                 use_tqdm=True,
                  *args,
                  **kwargs
                  ) -> None:
@@ -30,6 +32,8 @@ class AdmmBase(ABC):
         self.OptimInnerLoopNum = OptimInnerLoopNum
         self.ADMMLoopNum = ADMMLoopNum
         self.device = torch.device(device)
+        self.visualization = visualization
+        self.use_tqdm=use_tqdm
 
     def set_input(self, img, gt, weak_gt, *args, **kwargs):
         pass
@@ -88,9 +92,10 @@ class AdmmSize(AdmmBase):
     def __init__(self, model: Segmentator,
                  OptimInnerLoopNum: int = 1,
                  ADMMLoopNum: int = 2,
-                 device: str = 'cpu'
+                 device: str = 'cpu',
+                 visualization=False,
                  ) -> None:
-        super().__init__(model, OptimInnerLoopNum, ADMMLoopNum, device)
+        super().__init__(model, OptimInnerLoopNum, ADMMLoopNum, device, visualization=visualization)
 
     def set_input(self, img, gt, weak_gt, bounds):
         self.img: torch.Tensor = img.to(self.device)
@@ -112,8 +117,9 @@ class AdmmSize(AdmmBase):
             self._update_s_torch()
             self._update_theta(criterion)
             self._update_v()
-            # self.show('s', fig_num=1)
-            # self.show('v', fig_num=2)
+            if self.visualization:
+                self.show('s', fig_num=1)
+                self.show('v', fig_num=2)
             # time1 = time.time()
             # results = _multiprocess_Call(self.img.cpu().numpy().squeeze(1), F.softmax(self.score.detach(), 1).cpu().numpy(),
             #                          self.v.cpu().numpy(), self.gt.cpu().numpy(), self.weak_gt.cpu().numpy())
@@ -166,10 +172,11 @@ class AdmmSize(AdmmBase):
 class AdmmGCSize(AdmmSize):
 
     def __init__(self, model: Segmentator, OptimInnerLoopNum: int = 1, ADMMLoopNum: int = 2,
-                 device: str = 'cpu', lamda=10, sigma=0.02) -> None:
-        super().__init__(model, OptimInnerLoopNum, ADMMLoopNum, device)
+                 device: str = 'cpu', lamda=10, sigma=0.02, kernel_size=3, visualization=False) -> None:
+        super().__init__(model, OptimInnerLoopNum, ADMMLoopNum, device, visualization=visualization)
         self.lamda = lamda
         self.sigma = sigma
+        self.kernel_size = kernel_size
         self.p_u = 10
 
     def set_input(self, img, gt, weak_gt, bounds):
@@ -198,23 +205,25 @@ class AdmmGCSize(AdmmSize):
             self._update_theta(criterion)
             self._update_u()
             self._update_v()
-            # self.show('gamma',fig_num=1)
-            # self.show('s',fig_num=2)
+            if self.visualization:
+                self.show('gamma', fig_num=1)
+                self.show('s', fig_num=2)
 
     def _update_gamma(self):
-        new_gamma = _multiprocess_Call(self.img.cpu().numpy().squeeze(1),
-                                       F.softmax(self.score.detach(), 1).cpu().numpy(),
-                                       self.u, self.gt.cpu().numpy(), self.weak_gt.cpu().numpy(), self.lamda,
-                                       self.sigma)
+        new_gamma = _multiprocess_Call(
+            imgs=self.img.cpu().numpy().squeeze(1),
+            scores=F.softmax(self.score.detach(), 1).cpu().numpy(),
+            us=self.u,
+            gts=self.gt.cpu().numpy(),
+            weak_gts=self.weak_gt.cpu().numpy(),
+            lamda=self.lamda,
+            sigma=self.sigma,
+            bounds=torch.stack((self.lowbound, self.highbound), dim=1).cpu().numpy(),
+            kernelsize=3
+        )
         new_gamma = np.stack(new_gamma, axis=0)
         _, _, _ = new_gamma.shape
         self.gamma = new_gamma
-
-    def update_2(self, criterion):
-        for iteration in range(self.ADMMLoopNum):
-            self._update_theta(criterion)
-            self._update_u()
-            self._update_v()
 
     def _update_theta(self, criterion):
         for i in range(self.OptimInnerLoopNum):
@@ -225,27 +234,27 @@ class AdmmGCSize(AdmmSize):
                         (F.softmax(self.score, dim=1)[:, 1] + (-self.s.float() + self.v.float())).norm(
                             dim=[1, 2]).mean() ** 2
             gamma_loss = self.p_u / 2 * \
-                         (F.softmax(self.score, dim=1)[:, 1] + current_n_gamma_p_u).norm(dim=[1,2]).mean() ** 2
+                         (F.softmax(self.score, dim=1)[:, 1] + current_n_gamma_p_u).norm(dim=[1, 2]).mean() ** 2
 
-            unlabled_loss = (size_loss+gamma_loss)/ list(self.s.reshape(-1).size())[0]
+            unlabled_loss = (size_loss + gamma_loss) / list(self.s.reshape(-1).size())[0]
 
             loss = CE_loss + unlabled_loss
             self.model.optimizer.zero_grad()
             loss.backward()
             self.model.optimizer.step()
-            self.score = self.model.predict(self.img,logit=True)
+            self.score = self.model.predict(self.img, logit=True)
 
     def _update_u(self):
-        new_u:np.ndarray = self.u + (F.softmax(self.score, dim=1)[:, 1].cpu().data.numpy().squeeze() - self.gamma) * 0.01
+        new_u: np.ndarray = self.u + (
+                F.softmax(self.score, dim=1)[:, 1].cpu().data.numpy().squeeze() - self.gamma) * 0.01
         assert new_u.shape.__len__() == 3
         self.u = new_u
 
-
-# helper function to call graphcut
-def _multiprocess_Call(imgs, scores, us, gts, weak_gts, lamda, sigma):
-    P = Pool()
-    results = P.starmap(Update_gamma, zip(imgs, scores, us, gts, weak_gts, repeat(lamda), repeat(sigma)))
-    P.close()
-    return results
-
-Update_gamma = partial(_update_gamma, kernelsize=3)
+# # helper function to call graphcut
+# def _multiprocess_Call(imgs, scores, us, gts, weak_gts, lamda, sigma):
+#     P = Pool()
+#     results = P.starmap(Update_gamma, zip(imgs, scores, us, gts, weak_gts, repeat(lamda), repeat(sigma)))
+#     P.close()
+#     return results
+#
+# Update_gamma = partial(_update_gamma, kernelsize=3)
