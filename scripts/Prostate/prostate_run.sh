@@ -65,8 +65,6 @@ rm -rf "archives/${save_dir}/gc_size"
 mv -f "runs/${save_dir}/gc_size" "archives/${save_dir}"
 }
 
-
-
 mkdir -p "archives/${save_dir}"
 run_fs
 run_size

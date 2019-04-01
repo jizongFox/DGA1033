@@ -91,13 +91,13 @@ def get_dataset_root(dataname):
         raise ('There is no such dataname, given {}'.format(dataname))
 
 
-def loader_interface(dataconfig_dict, loader_config_dict):
+def loader_interface(dataconfig_dict, loader_config_dict,group_train=False):
     assert dataconfig_dict['dataset_name'] in ('cardiac', 'prostate')
     if dataconfig_dict['dataset_name'] == 'cardiac':
         from .ACDC_helper import ACDC_dataloader
-        return ACDC_dataloader(dataconfig_dict, loader_config_dict)
+        return ACDC_dataloader(dataconfig_dict, loader_config_dict, group_train=group_train)
     elif dataconfig_dict['dataset_name'] == 'prostate':
         from .Prostate_helper import PROSTATE_dataloader
-        return PROSTATE_dataloader(dataconfig_dict, loader_config_dict)
+        return PROSTATE_dataloader(dataconfig_dict, loader_config_dict,group_train=group_train)
     else:
         raise NotImplementedError
