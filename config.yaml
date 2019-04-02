@@ -24,8 +24,8 @@ Scheduler:
 
 ADMM_Method:
   name: size
-  OptimInnerLoopNum: 1
-  ADMMLoopNum: 1
+  OptimInnerLoopNum: 5
+  ADMMLoopNum: 2
   device: cuda
   visualization: False
 
@@ -38,7 +38,7 @@ Trainer:
   save_dir: runs/prostate
   max_epoch: 500
   use_tqdm: True
-#  checkpoint: runs/first_try
+#  checkpoint: archives/PROSTATE/gc_size
 
 Loss:
   name: partial_ce

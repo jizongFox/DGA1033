@@ -3,7 +3,7 @@ gpu_num=$1
 eps=$2
 max_epoch=500
 use_data_aug=False
-save_dir=PROSTATE
+save_dir=PROSTATE_aug
 use_tqdm=True
 set -e
 
@@ -68,7 +68,7 @@ mv -f "runs/${save_dir}/gc_size" "archives/${save_dir}"
 mkdir -p "archives/${save_dir}"
 run_fs
 run_size
-wait_script
+#wait_script
 run_gc_size
 
 python admm_research/postprocessing/plot.py --folders "archives/${save_dir}/fs" "archives/${save_dir}/size" "archives/${save_dir}/gc_size" --file=wholeMeter.csv --classes tra_2d_dice_DSC1 val_2d_dice_DSC1 val_3d_dice_DSC1

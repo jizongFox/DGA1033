@@ -27,7 +27,7 @@ class AdmmBase(ABC):
                  **kwargs
                  ) -> None:
         super().__init__()
-        self.p_v = 10
+        self.p_v = 0.1
         self.model = model
         self.OptimInnerLoopNum = OptimInnerLoopNum
         self.ADMMLoopNum = ADMMLoopNum
