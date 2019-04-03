@@ -2,7 +2,7 @@
 gpu_num=$1
 eps=$2
 max_epoch=500
-use_data_aug=False
+use_data_aug=True
 save_dir=PROSTATE_aug
 use_tqdm=True
 set -e
