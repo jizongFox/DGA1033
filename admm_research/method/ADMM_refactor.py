@@ -27,7 +27,7 @@ class AdmmBase(ABC):
                  **kwargs
                  ) -> None:
         super().__init__()
-        self.p_v = 0.1
+        self.p_v = 10
         self.model = model
         self.OptimInnerLoopNum = OptimInnerLoopNum
         self.ADMMLoopNum = ADMMLoopNum
@@ -189,6 +189,7 @@ class AdmmGCSize(AdmmSize):
         self.sigma = sigma
         self.kernel_size = kernel_size
         self.p_u = 10
+        self.p_v=5
 
     def set_input(self, img, gt, weak_gt, bounds):
         self.img: torch.Tensor = img.to(self.device)
