@@ -16,6 +16,7 @@ def get_args() -> argparse.Namespace:
     parser.add_argument('--folders', type=str, nargs='+', help='input folders', required=True)
     parser.add_argument('--file', type=str, required=True, help='csv name')
     parser.add_argument('--classes', type=str, nargs='+', required=True, help='')
+    parser.add_argument('--yrange',type=float,nargs=2,default=[0.4,0.9],help='Y range for plot')
     return parser.parse_args()
 
 
@@ -34,6 +35,8 @@ def main(args: argparse.Namespace) -> None:
             file.plot(label=file_path.parent.stem)
         plt.legend()
         plt.title(_class)
+        plt.grid()
+        plt.ylim(args.yrange)
         plt.savefig(Path(parent_path) / (parent_path.stem+_class + '.png'))
         plt.close('all')
 
@@ -44,6 +47,8 @@ def main(args: argparse.Namespace) -> None:
             file.plot(label=file_path.parent.stem+f'/{_class}', color=c[i],linestyle=s[j])
         plt.legend()
         plt.title('total')
+    plt.grid()
+    plt.ylim(args.yrange)
     plt.savefig(Path(parent_path) / (parent_path.stem+'total.png'))
     plt.close('all')
 

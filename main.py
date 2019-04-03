@@ -17,9 +17,10 @@ pprint(parser_args)
 with open('config.yaml') as f:
     config = yaml.load(f, )
 config = dict_merge(config, parser_args, True)
+
 # overwrite the checkpoint config
 try:
-    if config.get('Trainer',{}).get('checkpoint',{}) is not None:
+    if config.get('Trainer', {}).get('checkpoint', {}) is not None:
         with open(f"{Path(config['Trainer']['checkpoint']) / 'config_ACDC.yaml'}") as f:
             config = yaml.load(f, )
         config = dict_merge(config, parser_args, True)
@@ -36,6 +37,7 @@ train_loader, val_loader = loader_interface(config['Dataset'], config['Dataloade
 admmmethod = get_method_class(config['ADMM_Method']['name'])(model=model,
                                                              **{k: v for k, v in config['ADMM_Method'].items() if
                                                                 k != 'name'})
+
 
 trainer = ADMM_Trainer(
     ADMM_method=admmmethod,
