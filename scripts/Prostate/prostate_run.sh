@@ -2,9 +2,10 @@
 gpu_num=$1
 eps=$2
 max_epoch=500
-use_data_aug=True
-save_dir=PROSTATE_aug
+use_data_aug=False
+save_dir=PROSTATE_statitc_aug
 use_tqdm=True
+subfolder=erosion
 set -e
 
 echo 'Parameters:'
@@ -22,8 +23,9 @@ rm -rf "runs/${save_dir}/fs"
 CUDA_VISIBLE_DEVICES=${gpu_num} python main.py  \
 Arch.name=cnet \
 Trainer.save_dir="runs/${save_dir}/fs" \
-Dataset.dataset_name=prostate \
+Dataset.dataset_name=prostate_aug \
 Dataset.use_data_aug=$use_data_aug \
+Dataset.subfolder=$subfolder \
 ADMM_Method.name=fs \
 Trainer.max_epoch=${max_epoch} \
 Trainer.use_tqdm=${use_tqdm}
@@ -37,8 +39,9 @@ rm -rf "runs/${save_dir}/size"
 CUDA_VISIBLE_DEVICES=${gpu_num} python main.py  \
 Arch.name=cnet \
 Trainer.save_dir="runs/${save_dir}/size" \
-Dataset.dataset_name=prostate \
+Dataset.dataset_name=prostate_aug \
 Dataset.use_data_aug=$use_data_aug \
+Dataset.subfolder=$subfolder \
 Dataset.metainfoGenerator_dict.eps=${eps} \
 ADMM_Method.name=size \
 Trainer.max_epoch=${max_epoch} \
@@ -54,6 +57,7 @@ Arch.name=cnet \
 Trainer.save_dir="runs/${save_dir}/gc_size" \
 Dataset.dataset_name=prostate \
 Dataset.use_data_aug=$use_data_aug \
+Dataset.subfolder=$subfolder \
 Dataset.metainfoGenerator_dict.eps=${eps} \
 ADMM_Method.name=gc_size \
 ADMM_Method.lamda=0.5 \

@@ -1,13 +1,14 @@
 Dataset:
   dataset_name: cardiac
   use_data_aug: False
+  subfolder: WeaklyAnnotations
   metainfoGenerator_dict:
     name: IndividualBoundGenerator
     eps: 0.1
 
 Dataloader:
-  num_workers: 8
-  batch_size: 8
+  num_workers: 4
+  batch_size: 4
   shuffle: True
 
 Arch:
@@ -15,7 +16,7 @@ Arch:
   num_classes: 2
 Optim:
   name: Adam
-  lr: 0.005
+  lr: 0.0005
   weight_decay: 0.00001
 Scheduler:
   name: StepLR
@@ -23,7 +24,7 @@ Scheduler:
   gamma: 0.1
 
 ADMM_Method:
-  name: size
+  name: gc_size
   OptimInnerLoopNum: 5
   ADMMLoopNum: 2
   device: cuda

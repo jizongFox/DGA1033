@@ -6,7 +6,7 @@ results/*
 .DS_Store
 run/
 zzz*.py
-archive
+archives
 runs/
 envs
 admm_research.egg-info/*
@@ -16,11 +16,8 @@ admm_research.egg-info/*
 tmp/
 /parameterSearch/
 admm_research/__init__.pyc
-
 /admm_research/dataset/ACDC-2D-All/train/.ipynb_checkpoints/
 /admm_research.egg-info/
 tmp.*
-/archives/
-a
-dmm_research/dataset/ACDC-2D-All/.ipynb_checkpoints/
-_*.py
+admm_research/dataset/ACDC-2D-All/.ipynb_checkpoints/
+_zz*.py

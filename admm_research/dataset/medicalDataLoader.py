@@ -23,18 +23,27 @@ default_transform = transforms.Compose([
 ])
 
 
-def make_dataset(root, mode):
+def make_dataset(root, mode, subfolder="WeaklyAnnotations"):
     assert mode in ['train', 'val', 'test']
     items = []
 
     if mode == 'train':
-        train_img_path = os.path.join(root, 'train', 'Img')
-        train_mask_path = os.path.join(root, 'train', 'GT')
-        train_mask_weak_path = os.path.join(root, 'train', 'WeaklyAnnotations')
+        try:
+            train_img_path = os.path.join(root, 'train', 'Img')
+            images = os.listdir(train_img_path)
+        except FileNotFoundError:
+            train_img_path = os.path.join(root, 'train', 'img')
+            images = os.listdir(train_img_path)
+        try:
+            train_mask_path = os.path.join(root, 'train', 'GT')
+            labels = os.listdir(train_mask_path)
+        except FileNotFoundError:
+            train_mask_path = os.path.join(root, 'train', 'gt')
+            labels = os.listdir(train_mask_path)
 
-        images = os.listdir(train_img_path)
-        labels = os.listdir(train_mask_path)
+        train_mask_weak_path = os.path.join(root, 'train', subfolder)
         labels_weak = os.listdir(train_mask_weak_path)
+
         images.sort()
         labels.sort()
         labels_weak.sort()
@@ -45,12 +54,21 @@ def make_dataset(root, mode):
             items.append(item)
 
     elif mode == 'val':
-        train_img_path = os.path.join(root, 'val', 'Img')
-        train_mask_path = os.path.join(root, 'val', 'GT')
-        train_mask_weak_path = os.path.join(root, 'val', 'WeaklyAnnotations')
+        try:
+            train_img_path = os.path.join(root, 'val', 'Img')
+            images = os.listdir(train_img_path)
+        except FileNotFoundError:
+            train_img_path = os.path.join(root, 'val', 'img')
+            images = os.listdir(train_img_path)
+        try:
+            train_mask_path = os.path.join(root, 'val', 'GT')
+            labels = os.listdir(train_mask_path)
+        except FileNotFoundError:
+            train_mask_path = os.path.join(root, 'val', 'gt')
+            labels = os.listdir(train_mask_path)
 
-        images = os.listdir(train_img_path)
-        labels = os.listdir(train_mask_path)
+        train_mask_weak_path = os.path.join(root, 'val', subfolder)
+
         labels_weak = os.listdir(train_mask_weak_path)
 
         images.sort()
@@ -62,9 +80,15 @@ def make_dataset(root, mode):
                     os.path.join(train_mask_weak_path, it_w))
             items.append(item)
     else:
-        train_img_path = os.path.join(root, 'test', 'Img')
-        train_mask_path = os.path.join(root, 'test', 'GT')
-        train_mask_weak_path = os.path.join(root, 'test', 'WeaklyAnnotations')
+        try:
+            train_img_path = os.path.join(root, 'val', 'Img')
+        except FileNotFoundError:
+            train_img_path = os.path.join(root, 'val', 'img')
+        try:
+            train_mask_path = os.path.join(root, 'val', 'GT')
+        except FileNotFoundError:
+            train_mask_path = os.path.join(root, 'val', 'gt')
+        train_mask_weak_path = os.path.join(root, 'test', subfolder)
 
         images = os.listdir(train_img_path)
         labels = os.listdir(train_mask_path)
@@ -84,7 +108,7 @@ def make_dataset(root, mode):
 
 class MedicalImageDataset(Dataset):
 
-    def __init__(self, root_dir, mode, transform=None, augment=None, equalize=False,
+    def __init__(self, root_dir, mode, subfolder='WeaklyAnnotations', transform=None, augment=None, equalize=False,
                  metainfoGenerator_dict: dict = None):
         """
         Args:
@@ -96,7 +120,8 @@ class MedicalImageDataset(Dataset):
         self.name = mode + '_dataset'
         self.root_dir = root_dir
         self.transform = transform
-        self.imgs = make_dataset(root_dir, mode)
+        self.subfolder = subfolder
+        self.imgs = make_dataset(root_dir, mode, subfolder)
         self.augment = augment
         self.equalize = equalize
         self.training = ModelMode.TRAIN
@@ -131,9 +156,7 @@ class MedicalImageDataset(Dataset):
         self.transform = self.transform if self.transform is not None else default_transform
         img = self.transform['Img'](img)
         mask = self.transform['mask'](mask)
-        # mask = (mask >= 0.8).long()
         mask_weak = self.transform['mask'](mask_weak)
-        # mask_weak = (mask_weak >= 0.8).long()
         if getattr(self, 'metainGenerator'):
             meta_info = self.metainGenerator(mask)
             return [img, mask, mask_weak, img_path], meta_info

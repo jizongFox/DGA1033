@@ -23,26 +23,28 @@ def _registre_data_root(name, root, alis=None):
 
 class ToLabel(nn.Module):
 
-    def __init__(self, mapping={0: 0, 85: 0, 170: 0, 255: 1, }):
+    def __init__(self, mapping=None):
         super().__init__()
         self.mapping = mapping
 
     def forward(self, input):
         input_np = np.array(input).astype(np.float32)
-        input_np = np.vectorize(self.mapping.get)(input_np)
+        if self.mapping is not None:
+            input_np = np.vectorize(self.mapping.get)(input_np)
         input_torch = torch.from_numpy(input_np).long()
         return input_torch
 
 
-def segment_transform(size):
+def segment_transform(size,mapping=None):
+    from PIL import Image
     img_transform = transforms.Compose([
         transforms.Resize(size),
         transforms.ToTensor()
     ])
     mask_transform = transforms.Compose([
-        transforms.Resize(size),
+        transforms.Resize(size,interpolation=Image.NEAREST),
         # transforms.ToTensor()
-        ToLabel()
+        ToLabel(mapping)
     ])
     return {'Img': img_transform,
             'mask': mask_transform}
@@ -82,6 +84,7 @@ def augment(img, mask, weak_mask):
 
 _registre_data_root('ACDC_2D', './admm_research/dataset/ACDC-2D-All', 'cardiac')
 _registre_data_root('PROSTATE', './admm_research/dataset/PROSTATE', 'prostate')
+_registre_data_root('PROSTATE-Aug', './admm_research/dataset/PROSTATE-Aug', 'prostate_aug')
 
 
 def get_dataset_root(dataname):
@@ -92,11 +95,11 @@ def get_dataset_root(dataname):
 
 
 def loader_interface(dataconfig_dict, loader_config_dict,group_train=False):
-    assert dataconfig_dict['dataset_name'] in ('cardiac', 'prostate')
+    assert dataconfig_dict['dataset_name'] in ('cardiac', 'prostate', 'prostate_aug'),dataconfig_dict['dataset_name']
     if dataconfig_dict['dataset_name'] == 'cardiac':
         from .ACDC_helper import ACDC_dataloader
         return ACDC_dataloader(dataconfig_dict, loader_config_dict, group_train=group_train)
-    elif dataconfig_dict['dataset_name'] == 'prostate':
+    elif dataconfig_dict['dataset_name'] in ('prostate','prostate_aug'):
         from .Prostate_helper import PROSTATE_dataloader
         return PROSTATE_dataloader(dataconfig_dict, loader_config_dict,group_train=group_train)
     else:

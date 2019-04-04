@@ -419,7 +419,7 @@ class Conv_residual_conv(nn.Module):
 
 
 class CorstemNet(nn.Module):
-    def __init__(self, input_nc=1, num_classes=2, ngf=32, dtype=torch.float32):
+    def __init__(self, input_nc=1, num_classes=2, ngf=32):
         super().__init__()
         self.in_dim = input_nc
         self.out_dim = ngf

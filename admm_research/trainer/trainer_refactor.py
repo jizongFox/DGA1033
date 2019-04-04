@@ -57,21 +57,21 @@ class ADMM_Trainer(Base):
         config_logger(self.save_dir)
         self.device = self.admm.device
 
-        self.checkpoint=None
+        self.checkpoint = None
         if checkpoint is not None:
             try:
-                self.checkpoint=checkpoint
+                self.checkpoint = checkpoint
                 self.load_checkpoint(checkpoint)
             except Exception as e:
                 print(f'Loading checkpoint failed with {e}.')
 
-        self.whole_config=None
+        self.whole_config = None
         if whole_config_dict is not None:
             self.whole_config = whole_config_dict
             with open(self.save_dir / 'config_ACDC.yaml', 'w') as f:
-                yaml.dump(whole_config_dict, f,)
+                yaml.dump(whole_config_dict, f, )
         self.to(self.device)
-        self.use_tqdm=use_tqdm
+        self.use_tqdm = use_tqdm
 
     def to(self, device):
         self.admm.to(device)
@@ -89,18 +89,18 @@ class ADMM_Trainer(Base):
         # try to load the saved meters
         if self.checkpoint is not None:
             try:
-                wholeMeter.load_state_dict(torch.load(Path(self.checkpoint)/'last.pth',map_location=torch.device('cpu'))['meter'])
+                wholeMeter.load_state_dict(
+                    torch.load(Path(self.checkpoint) / 'last.pth', map_location=torch.device('cpu'))['meter'])
             except Exception as e:
                 print(f'Loading meter historical record failed with {e}.')
 
-
         Path(self.save_dir, 'meters').mkdir(exist_ok=True)
 
-        for epoch in range(self.begin_epoch+1, self.max_epoch+1):
+        for epoch in range(self.begin_epoch + 1, self.max_epoch + 1):
             tra_2d_dice = self._main_loop(self.train_dataloader, epoch, mode=ModelMode.TRAIN)
             with torch.no_grad():
                 val_2d_dice, val_3d_dice = self._eval_loop(val_dataloader=self.val_dataloader, epoch=epoch,
-                                                      mode=ModelMode.EVAL)
+                                                           mode=ModelMode.EVAL)
 
             # save results:
             for k, v in METERS.items():
@@ -109,9 +109,7 @@ class ADMM_Trainer(Base):
                 v.summary().to_csv(Path(self.save_dir, 'meters', f'{k}.csv'))
             wholeMeter.summary().to_csv(Path(self.save_dir, f'wholeMeter.csv'))
             self.schedulerstep()
-            self.save_checkpoint(dice=val_3d_dice.get('DSC1'),epoch=epoch,meters=wholeMeter)
-
-
+            self.save_checkpoint(dice=val_3d_dice.get('DSC1'), epoch=epoch, meters=wholeMeter)
 
     def _main_loop(self, dataloader, epoch, mode, *args, **kwargs):
         dataloader.dataset.set_mode(mode)
@@ -128,12 +126,11 @@ class ADMM_Trainer(Base):
             self.admm.update(self.criterion)
             train_dice.add(self.admm.score, gt)
             if self.use_tqdm:
-
                 report_dict = train_dice.summary()
                 dataloader_.set_postfix(report_dict)
         if self.use_tqdm:
             report_dict = train_dice.summary()
-            string_dict = f', '.join([f"{k}:{v:.3f}" for k,v in report_dict.items()])
+            string_dict = f', '.join([f"{k}:{v:.3f}" for k, v in report_dict.items()])
             print(f'Training   epoch: {epoch} -> {string_dict}')
         return train_dice.summary()
 
@@ -152,40 +149,38 @@ class ADMM_Trainer(Base):
             val_dice.add(pred_logit=pred, gt=gt)
             val_bdice.add(pred, gt)
             if self.use_tqdm:
-                report_dict = flatten_dict({'':val_dice.summary(),'b':val_bdice.summary()},sep='')
+                report_dict = flatten_dict({'': val_dice.summary(), 'b': val_bdice.summary()}, sep='')
                 val_dataloader_.set_postfix(report_dict)
         if self.use_tqdm:
-            report_dict = flatten_dict({'':val_dice.summary(),'b':val_bdice.summary()},sep='')
-            string_dict = f', '.join([f"{k}:{v:.3f}" for k,v in report_dict.items()])
+            report_dict = flatten_dict({'': val_dice.summary(), 'b': val_bdice.summary()}, sep='')
+            string_dict = f', '.join([f"{k}:{v:.3f}" for k, v in report_dict.items()])
             print(f'Validating epoch: {epoch} -> {string_dict}')
         return val_dice.summary(), val_bdice.summary()
 
-
-    def save_checkpoint(self, dice, epoch,meters):
+    def save_checkpoint(self, dice, epoch, meters):
         try:
             getattr(self, 'best_dice')
         except:
             self.best_dice = -1
-        save_best=False
-        if dice>=self.best_dice:
-            self.best_dice=dice
-            save_best=True
+        save_best = False
+        if dice >= self.best_dice:
+            self.best_dice = dice
+            save_best = True
 
         dict = {}
         # dict['model'] = self.admm.model.state_dict
         dict['epoch'] = epoch
         dict['meter'] = meters.state_dict
         dict['ADMM'] = self.admm.state_dict
-        dict['best']=self.best_dice
+        dict['best'] = self.best_dice
         torch.save(dict, os.path.join(self.save_dir, 'last.pth'))
         if save_best:
             torch.save(dict, os.path.join(self.save_dir, 'best.pth'))
 
-
     # todo modify
-    def load_checkpoint(self,checkpoint):
+    def load_checkpoint(self, checkpoint):
 
-        state_dict = torch.load(Path(checkpoint)/'last.pth',map_location=torch.device('cpu'))
+        state_dict = torch.load(Path(checkpoint) / 'last.pth', map_location=torch.device('cpu'))
 
         self.admm.load_state_dict(state_dict['ADMM'])
 
