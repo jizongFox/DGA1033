@@ -2,10 +2,11 @@
 gpu_num=$1
 eps=$2
 max_epoch=500
-use_data_aug=False
-save_dir=PROSTATE_statitc_aug
+use_data_aug=True
+save_dir=PROSTATE_dynamic_aug
 use_tqdm=True
-subfolder=erosion
+dataset_name=prostate
+subfolder=WeaklyAnnotations
 set -e
 
 echo 'Parameters:'
@@ -23,7 +24,7 @@ rm -rf "runs/${save_dir}/fs"
 CUDA_VISIBLE_DEVICES=${gpu_num} python main.py  \
 Arch.name=cnet \
 Trainer.save_dir="runs/${save_dir}/fs" \
-Dataset.dataset_name=prostate_aug \
+Dataset.dataset_name=${dataset_name} \
 Dataset.use_data_aug=$use_data_aug \
 Dataset.subfolder=$subfolder \
 ADMM_Method.name=fs \
@@ -39,7 +40,7 @@ rm -rf "runs/${save_dir}/size"
 CUDA_VISIBLE_DEVICES=${gpu_num} python main.py  \
 Arch.name=cnet \
 Trainer.save_dir="runs/${save_dir}/size" \
-Dataset.dataset_name=prostate_aug \
+Dataset.dataset_name=${dataset_name} \
 Dataset.use_data_aug=$use_data_aug \
 Dataset.subfolder=$subfolder \
 Dataset.metainfoGenerator_dict.eps=${eps} \
@@ -55,7 +56,7 @@ rm -rf "runs/${save_dir}/gc_size"
 CUDA_VISIBLE_DEVICES=${gpu_num} python main.py  \
 Arch.name=cnet \
 Trainer.save_dir="runs/${save_dir}/gc_size" \
-Dataset.dataset_name=prostate \
+Dataset.dataset_name=${dataset_name} \
 Dataset.use_data_aug=$use_data_aug \
 Dataset.subfolder=$subfolder \
 Dataset.metainfoGenerator_dict.eps=${eps} \
@@ -71,9 +72,9 @@ mv -f "runs/${save_dir}/gc_size" "archives/${save_dir}"
 
 mkdir -p "archives/${save_dir}"
 run_fs
-run_size
+#run_size
 #wait_script
-run_gc_size
+#run_gc_size
 
 python admm_research/postprocessing/plot.py --folders "archives/${save_dir}/fs" "archives/${save_dir}/size" "archives/${save_dir}/gc_size" --file=wholeMeter.csv --classes tra_2d_dice_DSC1 val_2d_dice_DSC1 val_3d_dice_DSC1
 

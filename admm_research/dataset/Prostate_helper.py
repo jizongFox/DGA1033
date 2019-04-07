@@ -11,10 +11,10 @@ __all__ = ['PROSTATE_dataloader']
 def build_datasets(dataset_name, use_data_aug, subfolder='WeaklyAnnotations', metainfoGenerator_dict={}):
     assert dataset_name in ('prostate', 'prostate_aug')
     root_dir = get_dataset_root(dataset_name)
-    train_dataset = MedicalImageDataset(root_dir, 'train', subfolder=subfolder, transform=segment_transform((256, 256),mapping=None),
+    train_dataset = MedicalImageDataset(root_dir, 'train', subfolder=subfolder, transform=segment_transform((256, 256),mapping={0:0,1:1,255:1}),
                                         augment=augment if use_data_aug else None,
                                         metainfoGenerator_dict=metainfoGenerator_dict)
-    val_dataset = MedicalImageDataset(root_dir, 'val', subfolder=subfolder, transform=segment_transform((256, 256),mapping=None),
+    val_dataset = MedicalImageDataset(root_dir, 'val', subfolder=subfolder, transform=segment_transform((256, 256),mapping={0:0,1:1,255:1}),
                                       augment=None,
                                       metainfoGenerator_dict=metainfoGenerator_dict)
 
