@@ -183,13 +183,14 @@ class AdmmSize(AdmmBase):
 class AdmmGCSize(AdmmSize):
 
     def __init__(self, model: Segmentator, OptimInnerLoopNum: int = 1, ADMMLoopNum: int = 2,
-                 device: str = 'cpu', lamda=0.5, sigma=0.005, kernel_size=5, visualization=False) -> None:
+                 device: str = 'cpu', lamda=0.5, sigma=0.005, kernel_size=5, visualization=False, gc_method='method3') -> None:
         super().__init__(model, OptimInnerLoopNum, ADMMLoopNum, device, visualization=visualization)
         self.lamda = lamda
         self.sigma = sigma
         self.kernel_size = kernel_size
         self.p_u = 10
         self.p_v=5
+        self.gc_method = gc_method
 
     def set_input(self, img, gt, weak_gt, bounds):
         self.img: torch.Tensor = img.to(self.device)
@@ -231,7 +232,8 @@ class AdmmGCSize(AdmmSize):
             lamda=self.lamda,
             sigma=self.sigma,
             bounds=torch.stack((self.lowbound, self.highbound), dim=1).cpu().numpy(),
-            kernelsize=3
+            kernelsize=3,
+            method=self.gc_method
         )
         new_gamma = np.stack(new_gamma, axis=0)
         _, _, _ = new_gamma.shape

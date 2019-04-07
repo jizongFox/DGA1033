@@ -7,6 +7,12 @@ import matplotlib.pyplot as plt
 import imutils
 # from scipy.special import softmax
 
+
+def _update_gamma_oracle(img, probability, u, gt, weak_gt, lamda, sigma, kernelsize, bounds) -> np.ndarray:
+    assert gt.shape.__len__() == 2
+    return gt
+
+
 def _update_gamma_CD_oracle(img, probability, u, gt, weak_gt, lamda, sigma, kernelsize, bounds) -> np.ndarray:
     assert isinstance(img, np.ndarray)
     assert img.shape.__len__() == 2
@@ -260,13 +266,16 @@ def shift_matrix(matrix, kernel):
 # helper function to call graphcut
 
 def _multiprocess_Call(imgs, scores, us, gts, weak_gts, lamda, sigma, kernelsize, bounds, method='method3'):
-    assert method in ('oracle','method1','method3'),"method should be in 'oracle','method1','method3'"
+    assert method in ('oracle','method1','method3','gt_oracle'),"method should be in 'oracle','method1','method3', and 'gt_oracle'"
     P = Pool(4)
     if method == 'oracle':
         results = P.starmap(_update_gamma_CD_oracle,
                         zip(imgs, scores, us, gts, weak_gts, repeat(lamda), repeat(sigma), repeat(kernelsize), bounds))
     elif method == 'method1':
         results = P.starmap(_update_gamma_CD_method1,
+                            zip(imgs, scores, us, gts, weak_gts, repeat(lamda), repeat(sigma), repeat(kernelsize), bounds))
+    if method == 'gt_oracle':
+        results = P.starmap(_update_gamma_oracle,
                             zip(imgs, scores, us, gts, weak_gts, repeat(lamda), repeat(sigma), repeat(kernelsize), bounds))
     else:
         results = P.starmap(_update_gamma_CD_method3,
