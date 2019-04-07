@@ -14,7 +14,7 @@ atlasCenter = ceil(sizeImg/2);
 
 diceVals = [];
 
-doCreateAtlas = true;
+doCreateAtlas = false;
 
 if doCreateAtlas   
     disp('Generating data...');
@@ -137,18 +137,23 @@ for i=1:size(volumes,1)
     U = zeros(2,N);    
     U(2,:) = 0.5-priorCrop(:);
         
-    weightFile = ['WeightMat/' num2str(sigmaW) '_' num2str(i) '.mat']; 
+    weightFile = ['WeightMat/pairwise' num2str(sigmaW) '_' num2str(i) '.mat']; 
     
     if exist(weightFile, 'file') == 2
        disp('Loading W matrix...');       
        load(weightFile);
        disp('done.');
-   else 
+    else 
         disp('Computing W matrix...');
         W = computeWeights3D(volCrop, kernel, sigmaW, epsW);        
         save(weightFile, 'W','-v7.3');
         disp('done.');
-   end
+    end
+    
+    unaryFile = ['WeightMat/unary' '_' num2str(i) '.mat'];
+    save(unaryFile,'U','-v7.3')
+    
+    
     
     % Run max flow algorithm
     disp('Running graph-cut...');
