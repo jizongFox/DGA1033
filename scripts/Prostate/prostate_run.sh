@@ -2,11 +2,11 @@
 gpu_num=$1
 eps=$2
 max_epoch=500
-use_data_aug=True
-save_dir=PROSTATE_dynamic_aug
+use_data_aug=False
+save_dir=PROSTATE_gt_oracle
 use_tqdm=True
-dataset_name=prostate
-subfolder=WeaklyAnnotations
+dataset_name=prostate_aug
+subfolder=erosion
 set -e
 
 echo 'Parameters:'

@@ -25,9 +25,9 @@ Scheduler:
 
 ADMM_Method:
   name: gc_size
-  OptimInnerLoopNum: 5
-  ADMMLoopNum: 2
-  device: cpu
+  OptimInnerLoopNum: 1
+  ADMMLoopNum: 1
+  device: cuda
   visualization: False
   gc_method: gt_oracle
 
