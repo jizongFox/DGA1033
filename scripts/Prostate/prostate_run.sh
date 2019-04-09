@@ -2,10 +2,10 @@
 gpu_num=$1
 eps=$2
 max_epoch=500
-use_data_aug=False
 save_dir=PROSTATE_gt_oracle
-use_tqdm=True
+use_tqdm=False
 dataset_name=prostate_aug
+use_data_aug=False
 subfolder=erosion
 set -e
 

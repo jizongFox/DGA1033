@@ -31,7 +31,7 @@ ADMM_Method:
   visualization: False
   gc_method: gt_oracle
   p_u: 10.0
-  p_v: 10.0
+  p_v: 0
 
 # add the following parameters in argparser
 #  lamda: 0.5
