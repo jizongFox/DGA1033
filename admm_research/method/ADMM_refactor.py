@@ -27,13 +27,12 @@ class AdmmBase(ABC):
                  **kwargs
                  ) -> None:
         super().__init__()
-        self.p_v = 10
         self.model = model
         self.OptimInnerLoopNum = OptimInnerLoopNum
         self.ADMMLoopNum = ADMMLoopNum
         self.device = torch.device(device)
         self.visualization = visualization
-        self.use_tqdm=use_tqdm
+        self.use_tqdm = use_tqdm
 
     def set_input(self, img, gt, weak_gt, *args, **kwargs):
         pass
@@ -89,7 +88,7 @@ class AdmmBase(ABC):
     @property
     def state_dict(self):
         model_state_dict = self.model.state_dict
-        return {**{key: value for key, value in self.__dict__.items() if key != 'model'}, **{'model':model_state_dict}}
+        return {**{key: value for key, value in self.__dict__.items() if key != 'model'}, **{'model': model_state_dict}}
 
     def load_state_dict(self, state_dict):
         """Loads the schedulers state.
@@ -98,9 +97,10 @@ class AdmmBase(ABC):
             state_dict (dict): scheduler state. Should be an object returned
                 from a call to :meth:`state_dict`.
         """
-        model = Segmentator.load_state_dict(self.model,state_dict['model'])
-        self.model=model
-        self.__dict__.update({k:v for k,v in state_dict.items() if k!='model'})
+        model = Segmentator.load_state_dict(self.model, state_dict['model'])
+        self.model = model
+        self.__dict__.update({k: v for k, v in state_dict.items() if k != 'model'})
+
 
 class AdmmSize(AdmmBase):
 
@@ -109,8 +109,11 @@ class AdmmSize(AdmmBase):
                  ADMMLoopNum: int = 2,
                  device: str = 'cpu',
                  visualization=False,
+                 p_v: float = 1.0,
+                 *args, **kwargs
                  ) -> None:
-        super().__init__(model, OptimInnerLoopNum, ADMMLoopNum, device, visualization=visualization)
+        super().__init__(model, OptimInnerLoopNum, ADMMLoopNum, device, visualization=visualization, *args, **kwargs)
+        self.p_v = float(p_v)
 
     def set_input(self, img, gt, weak_gt, bounds):
         self.img: torch.Tensor = img.to(self.device)
@@ -173,7 +176,6 @@ class AdmmSize(AdmmBase):
             loss.backward()
             self.model.optimizer.step()
             self.score = self.model.predict(self.img, logit=True)
-            # print(f'CE:{CE_loss.item()}, unlabeled:{unlabled_loss.item()}')
 
     def _update_v(self):
         self.v = self.v + (F.softmax(self.score, dim=1)[:, 1].squeeze().detach() - self.s.float()) * 0.1
@@ -183,13 +185,14 @@ class AdmmSize(AdmmBase):
 class AdmmGCSize(AdmmSize):
 
     def __init__(self, model: Segmentator, OptimInnerLoopNum: int = 1, ADMMLoopNum: int = 2,
-                 device: str = 'cpu', lamda=0.5, sigma=0.005, kernel_size=5, visualization=False, gc_method='method3') -> None:
-        super().__init__(model, OptimInnerLoopNum, ADMMLoopNum, device, visualization=visualization)
+                 device: str = 'cpu', lamda=0.5, sigma=0.005, kernel_size=5, visualization=False, gc_method='method3',
+                 p_v: float = 10.0, p_u: float = 10.0, *args, **kwargs) -> None:
+        super().__init__(model, OptimInnerLoopNum, ADMMLoopNum, device, visualization=visualization, p_v=p_v, *args,
+                         **kwargs)
+        self.p_u = float(p_u)
         self.lamda = lamda
         self.sigma = sigma
         self.kernel_size = kernel_size
-        self.p_u = 10
-        self.p_v=5
         self.gc_method = gc_method
 
     def set_input(self, img, gt, weak_gt, bounds):
@@ -213,11 +216,15 @@ class AdmmGCSize(AdmmSize):
 
     def update(self, criterion):
         for iteration in range(self.ADMMLoopNum):
-            self._update_s_torch()
-            self._update_gamma()
+            if self.p_v > 0:
+                self._update_s_torch()
+            if self.p_u > 0:
+                self._update_gamma()
             self._update_theta(criterion)
-            self._update_u()
-            self._update_v()
+            if self.p_u > 0:
+                self._update_u()
+            if self.p_v > 0:
+                self._update_v()
             if self.visualization:
                 self.show('gamma', fig_num=1)
                 self.show('s', fig_num=2)

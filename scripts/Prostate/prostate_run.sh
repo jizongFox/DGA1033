@@ -76,5 +76,5 @@ mkdir -p "archives/${save_dir}"
 #wait_script
 run_gc_size
 
-python admm_research/postprocessing/plot.py --folders "archives/${save_dir}/fs" "archives/${save_dir}/size" "archives/${save_dir}/gc_size" --file=wholeMeter.csv --classes tra_2d_dice_DSC1 val_2d_dice_DSC1 val_3d_dice_DSC1
+#python admm_research/postprocessing/plot.py --folders "archives/${save_dir}/fs" "archives/${save_dir}/size" "archives/${save_dir}/gc_size" --file=wholeMeter.csv --classes tra_2d_dice_DSC1 val_2d_dice_DSC1 val_3d_dice_DSC1
 

@@ -22,3 +22,5 @@ tmp.*
 admm_research/dataset/ACDC-2D-All/.ipynb_checkpoints/
 _zz*.py
 /admm_research/dataset/PROSTATE/data.mat
+admm_research/dataset/PROSTATE/.ipynb_checkpoints/
+admm_research/dataset/PROSTATE/explore_data.ipynb
