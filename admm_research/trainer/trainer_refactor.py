@@ -120,7 +120,7 @@ class ADMM_Trainer(Base):
         train_dice = DiceMeter(method='2d', report_axises=[1], C=2)
         dataloader_ = tqdm_(dataloader) if self.use_tqdm else dataloader
 
-        for i, ((img, gt, wgt, _), size) in enumerate(dataloader_):
+        for i, ((img, gt, wgt, path), size) in enumerate(dataloader_):
             img, gt, wgt = img.to(self.device), gt.to(self.device), wgt.to(self.device)
             self.admm.set_input(img, gt, wgt, size[:, :, 1])
             self.admm.update(self.criterion)

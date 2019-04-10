@@ -10,6 +10,7 @@ Dataloader:
   num_workers: 4
   batch_size: 4
   shuffle: True
+  group_train: True
 
 Arch:
   name: enet

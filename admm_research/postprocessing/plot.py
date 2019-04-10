@@ -7,8 +7,8 @@ import pandas as pd
 import argparse
 from pathlib import Path
 
-c = ['r','g','b']
-s = ['-','--','-.']
+c = ['r','g','b','c','m','y','k']
+s = ['-','--','-.',':','-']
 
 
 def get_args() -> argparse.Namespace:

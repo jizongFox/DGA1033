@@ -11,17 +11,19 @@ __all__ = ['PROSTATE_dataloader']
 def build_datasets(dataset_name, use_data_aug, subfolder='WeaklyAnnotations', metainfoGenerator_dict={}):
     assert dataset_name in ('prostate', 'prostate_aug')
     root_dir = get_dataset_root(dataset_name)
-    train_dataset = MedicalImageDataset(root_dir, 'train', subfolder=subfolder, transform=segment_transform((256, 256),mapping={0:0,1:1,255:1}),
+    train_dataset = MedicalImageDataset(root_dir, 'train', subfolder=subfolder,
+                                        transform=segment_transform((256, 256), mapping={0: 0, 1: 1, 255: 1}),
                                         augment=augment if use_data_aug else None,
                                         metainfoGenerator_dict=metainfoGenerator_dict)
-    val_dataset = MedicalImageDataset(root_dir, 'val', subfolder=subfolder, transform=segment_transform((256, 256),mapping={0:0,1:1,255:1}),
+    val_dataset = MedicalImageDataset(root_dir, 'val', subfolder=subfolder,
+                                      transform=segment_transform((256, 256), mapping={0: 0, 1: 1, 255: 1}),
                                       augment=None,
                                       metainfoGenerator_dict=metainfoGenerator_dict)
 
     return train_dataset, val_dataset
 
 
-def build_dataloader(train_set, val_set, num_workers, batch_size, shuffle=True, group_train=False):
+def build_dataloader(train_set, val_set, num_workers, batch_size, shuffle=False, group_train=False):
     try:
         val_sampler = PatientSampler(val_set, "(Case\d+_\d+)_\d+", shuffle=shuffle)
     except AttributeError:
@@ -52,8 +54,11 @@ def build_dataloader(train_set, val_set, num_workers, batch_size, shuffle=True, 
     return train_loader, val_loader
 
 
-def PROSTATE_dataloader(dataset_dict, dataloader_dict, group_train=False):
+def PROSTATE_dataloader(dataset_dict, dataloader_dict):
+    # prostate_aug should not be coupled with group_train:
+    if dataloader_dict.get('dataset_name') == 'prostate_aug':
+        assert dataloader_dict.get('train_group', False) == False
     train_set, val_set = build_datasets(**dataset_dict)
-    train_loader, val_loader = build_dataloader(train_set=train_set, val_set=val_set, group_train=group_train,
+    train_loader, val_loader = build_dataloader(train_set=train_set, val_set=val_set,
                                                 **dataloader_dict)
     return train_loader, val_loader
