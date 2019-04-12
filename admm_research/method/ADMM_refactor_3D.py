@@ -200,7 +200,7 @@ class AdmmGCSize3D(AdmmGCSize):
 
         dice = 2 * (((mask_crop & crop_gamma) > 0).sum() + 1e-6) / (
                 (mask_crop > 0).sum() + (crop_gamma > 0).sum() + 1e-6)
-        print(f'{self.num_patient}:dice:{dice}')
+        # print(f'{self.num_patient}:dice:{dice}')
         new_gamma = np.zeros_like(self.gamma)
         new_gamma[
         int(cropMin[2]):int(cropMax[2]) + 1,
