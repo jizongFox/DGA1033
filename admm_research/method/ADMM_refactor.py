@@ -34,6 +34,9 @@ class AdmmBase(ABC):
         self.visualization = visualization
         self.use_tqdm = use_tqdm
 
+    def step(self):
+        pass
+
     def set_input(self, img, gt, weak_gt, *args, **kwargs):
         pass
 
@@ -270,12 +273,3 @@ class AdmmGCSize(AdmmSize):
                 F.softmax(self.score, dim=1)[:, 1].cpu().data.numpy().squeeze() - self.gamma) * 0.01
         assert new_u.shape.__len__() == 3
         self.u = new_u
-
-# # helper function to call graphcut
-# def _multiprocess_Call(imgs, scores, us, gts, weak_gts, lamda, sigma):
-#     P = Pool()
-#     results = P.starmap(Update_gamma, zip(imgs, scores, us, gts, weak_gts, repeat(lamda), repeat(sigma)))
-#     P.close()
-#     return results
-#
-# Update_gamma = partial(_update_gamma, kernelsize=3)

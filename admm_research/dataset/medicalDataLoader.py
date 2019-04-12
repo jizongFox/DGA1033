@@ -209,7 +209,8 @@ class PatientSampler(Sampler):
             self.idx_map[patient] += [i]
         # print(self.idx_map)
         assert sum(len(self.idx_map[k]) for k in unique_patients) == len(imgs)
-
+        # sort the dict
+        self.idx_map = dict(sorted(self.idx_map.items()))
         print("Patient to slices mapping done")
 
     def __len__(self):

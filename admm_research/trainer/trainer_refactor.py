@@ -70,6 +70,10 @@ class ADMM_Trainer(Base):
             self.whole_config = whole_config_dict
             with open(self.save_dir / 'config_ACDC.yaml', 'w') as f:
                 yaml.dump(whole_config_dict, f, )
+        # this is for mac os system
+        self.admm.device = torch.device('cpu')
+        self.device = self.admm.device
+
         self.to(self.device)
         self.use_tqdm = use_tqdm
 
@@ -79,6 +83,7 @@ class ADMM_Trainer(Base):
 
     def schedulerstep(self):
         self.admm.model.schedulerStep()
+        self.admm.step()
 
     def start_training(self):
         METERS = edict()
@@ -122,7 +127,7 @@ class ADMM_Trainer(Base):
 
         for i, ((img, gt, wgt, path), size) in enumerate(dataloader_):
             img, gt, wgt = img.to(self.device), gt.to(self.device), wgt.to(self.device)
-            self.admm.set_input(img, gt, wgt, size[:, :, 1])
+            self.admm.set_input(img, gt, wgt, size[:, :, 1], path)
             self.admm.update(self.criterion)
             train_dice.add(self.admm.score, gt)
             if self.use_tqdm:

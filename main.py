@@ -13,18 +13,19 @@ warnings.filterwarnings('ignore')
 parser_args = yaml_parser()
 print('->>Input args:')
 pprint(parser_args)
-with open('config.yaml') as f:
+with open('config_3D.yaml') as f:
     config = yaml.load(f, )
 config = dict_merge(config, parser_args, True)
 
 # overwrite the checkpoint config
 if config.get('Trainer', {}).get('checkpoint', {}) is not None:
-    try:
-        with open(f"{Path(config['Trainer']['checkpoint']) / 'config_ACDC.yaml'}") as f:
-            config = yaml.load(f, )
-        config = dict_merge(config, parser_args, True)
-    except (KeyError, FileNotFoundError) as e:
-        print(f'Load saved config file failed with error: {e}, using initial config+argparser.')
+    pass
+    # try:
+    #     with open(f"{Path(config['Trainer']['checkpoint']) / 'config_ACDC.yaml'}") as f:
+    #         config = yaml.load(f, )
+    #     config = dict_merge(config, parser_args, True)
+    # except (KeyError, FileNotFoundError) as e:
+    #     print(f'Load saved config file failed with error: {e}, using initial config+argparser.')
 
 print('>>Merged args:')
 pprint(config)

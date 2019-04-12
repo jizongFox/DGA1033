@@ -257,11 +257,10 @@ def _set_boundary_term(g, nodeids, img, lumda, sigma, kernelsize):
 def shift_matrix(matrix, kernel):
     center_x, center_y = int(kernel.shape[0] / 2), int(kernel.shape[1] / 2)
     [kernel_x, kernel_y] = np.array(list(zip(*np.where(kernel == 1))))[0]
-    dy, dx = kernel_x - center_x, kernel_y - center_y
-    shifted_matrix = np.roll(matrix, -dy, axis=0)
-    shifted_matrix = np.roll(shifted_matrix, -dx, axis=1)
+    dx, dy = kernel_x - center_x, kernel_y - center_y
+    shifted_matrix = np.roll(matrix, -dx, axis=0)
+    shifted_matrix = np.roll(shifted_matrix, -dy, axis=1)
     return shifted_matrix
-
 
 # helper function to call graphcut
 

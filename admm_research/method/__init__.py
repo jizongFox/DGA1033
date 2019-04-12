@@ -1,5 +1,6 @@
 from .ADMM_refactor import AdmmSize, AdmmGCSize
 from .fullysupervised import FullySupervisedWrapper
+from .ADMM_refactor_3D import AdmmGCSize3D
 
 """
 Package
@@ -29,6 +30,7 @@ def _register_arch(arch, callable, alias=None):
 # Adding architecture (new architecture goes here...)
 _register_arch('size', AdmmSize)
 _register_arch('gc_size', AdmmGCSize)
+_register_arch('gc_size_3d', AdmmGCSize3D)
 _register_arch('fs', FullySupervisedWrapper)
 
 """

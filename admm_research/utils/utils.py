@@ -261,6 +261,7 @@ def probs2class(probs: Tensor) -> Tensor:
 def class2one_hot(seg: Tensor, C: int) -> Tensor:
     if len(seg.shape) == 2:  # Only w, h, used by the dataloader
         seg = seg.unsqueeze(dim=0)
+
     assert sset(seg, list(range(C)))
 
     b, w, h = seg.shape  # type: Tuple[int, int, int]

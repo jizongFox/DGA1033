@@ -7,8 +7,8 @@ Dataset:
     eps: 0.1
 
 Dataloader:
-  num_workers: 4
-  batch_size: 4
+  num_workers: 1
+  batch_size: 1
   shuffle: True
   group_train: True
 
@@ -17,7 +17,7 @@ Arch:
   num_classes: 2
 Optim:
   name: Adam
-  lr: 0.0005
+  lr: 0.005
   weight_decay: 0.00001
 Scheduler:
   name: StepLR
@@ -25,14 +25,14 @@ Scheduler:
   gamma: 0.5
 
 ADMM_Method:
-  name: gc_size
+  name: gc_size_3d
   OptimInnerLoopNum: 1
-  ADMMLoopNum: 1
+  ADMMLoopNum: 100
   device: cuda
-  visualization: False
+  visualization: True
   gc_method: gt_oracle
   p_u: 10.0
-  p_v: 0
+  p_v: 10.0
 
 # add the following parameters in argparser
 #  lamda: 0.5
@@ -43,7 +43,7 @@ Trainer:
   save_dir: runs/prostate
   max_epoch: 500
   use_tqdm: True
-#  checkpoint: archives/PROSTATE/gc_size
+#  checkpoint: archives/PROSTATE_gt_oracle/gc_size
 
 Loss:
   name: partial_ce
