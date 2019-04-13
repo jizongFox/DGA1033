@@ -11,6 +11,7 @@ from functools import partial
 from itertools import repeat
 from scipy.io import loadmat
 import maxflow
+from admm_research.metrics2 import DiceMeter, AverageValueMeter
 from admm_research.models import Segmentator
 from admm_research.utils import pred2segmentation
 from .gc import _multiprocess_Call
@@ -82,6 +83,10 @@ class AdmmGCSize3D(AdmmGCSize):
         self.gc_scheduler: customized_scheduler.Scheduler = getattr(customized_scheduler, gc_scheduler_dict['name'])(
             **{k: v for k, v in gc_scheduler_dict.items() if k != "name"})
 
+        self.dicemeter = {}
+        self.dicemeter[0] = AverageValueMeter()
+        self.dicemeter[1] = AverageValueMeter()
+
     def step(self):
         self.weight_scheduler.step()
         self.balance_scheduler.step()
@@ -96,9 +101,7 @@ class AdmmGCSize3D(AdmmGCSize):
             self._update_theta(criterion)
             if self.p_u > 0:
                 self._update_u()
-                pass
             if self.p_v > 0:
-                pass
                 self._update_v()
             if self.visualization:
                 self.show('gamma', fig_num=1)
@@ -200,7 +203,8 @@ class AdmmGCSize3D(AdmmGCSize):
 
         dice = 2 * (((mask_crop & crop_gamma) > 0).sum() + 1e-6) / (
                 (mask_crop > 0).sum() + (crop_gamma > 0).sum() + 1e-6)
-        # print(f'{self.num_patient}:dice:{dice}')
+        self.dicemeter[self.mode].add(dice)
+        print(f'{self.num_patient}:dice:{dice}')
         new_gamma = np.zeros_like(self.gamma)
         new_gamma[
         int(cropMin[2]):int(cropMax[2]) + 1,
@@ -300,7 +304,8 @@ class AdmmGCSize3D(AdmmGCSize):
 
             total_loss = CE_loss + \
                          self.weight_scheduler.value / (self.weight_scheduler.value + 1) * (
-                    self.balance_scheduler.value * size_loss + (1 - self.balance_scheduler.value) * gamma_loss)
+                                 self.balance_scheduler.value * size_loss + (
+                                     1 - self.balance_scheduler.value) * gamma_loss)
             self.model.optimizer.zero_grad()
             total_loss.backward()
             self.model.optimizer.step()
