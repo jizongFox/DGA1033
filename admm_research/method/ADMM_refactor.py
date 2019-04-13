@@ -171,9 +171,7 @@ class AdmmSize(AdmmBase):
             unlabled_loss = self.p_v / 2 * (
                     F.softmax(self.score, dim=1)[:, 1] + (-self.s.float() + self.v.float())).norm(
                 dim=[1, 2]).mean() ** 2
-
             unlabled_loss /= list(self.s.reshape(-1).size())[0]
-
             loss = CE_loss + unlabled_loss
             self.model.optimizer.zero_grad()
             loss.backward()
@@ -198,7 +196,7 @@ class AdmmGCSize(AdmmSize):
         self.kernel_size = kernel_size
         self.gc_method = gc_method
 
-    def set_input(self, img, gt, weak_gt, bounds):
+    def set_input(self, img, gt, weak_gt, bounds, *args, **kwargs):
         self.img: torch.Tensor = img.to(self.device)
         _, _, _, _ = self.img.shape
         self.gt: torch.Tensor = gt.to(self.device)

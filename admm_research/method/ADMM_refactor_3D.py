@@ -20,7 +20,10 @@ from ..dataset.metainfoGenerator import IndividualBoundGenerator
 from ..scheduler import customized_scheduler
 from typing import Tuple
 from torch import nn
+from admm_research.postprocessing.viewer import multi_slice_viewer
 import numpy as np
+from admm_research.utils import save_images
+from skimage.io import imsave
 
 
 def image_histogram_equalization(image, number_bins=256):
@@ -52,7 +55,6 @@ class AdmmGCSize3D(AdmmGCSize):
             gc_method='method3',
             p_u: float = 10.0,
             p_v: float = 10.0,
-            altaspath: str = 'admm_research/dataset/ACDC-2D-All/dataACDC_LV.mat',
             new_eps: float = 0.1,
             weight_scheduler_dict: dict = {},
             balance_scheduler_dict: dict = {},
@@ -63,15 +65,6 @@ class AdmmGCSize3D(AdmmGCSize):
         super().__init__(model, OptimInnerLoopNum, ADMMLoopNum, device, lamda, sigma, kernel_size, visualization,
                          gc_method, p_v, p_u, *args, **kwargs)
         self.new_eps = float(new_eps)
-        assert Path(altaspath).exists()
-        self.atlaspath = Path(altaspath)
-        self.atlas = loadmat(self.atlaspath).get('atlas')
-        self.atlasCenter = np.ceil([x / 2 for x in self.atlas[0][0].shape])
-        assert self.atlasCenter.__len__() == 3
-        self.center = loadmat(self.atlaspath).get('centroids')
-        self.priorinfo = loadmat('admm_research/dataset/ACDC-2D-All/priorInfoACDC_LV.mat').get('priorInfo')
-        assert isinstance(self.atlas, np.ndarray), f'Atlas should be in np.ndarray, given {type(self.atlas)}.'
-        assert isinstance(self.center, np.ndarray)
         ## overide the 3D size generator
         self.threeD_size_generator = IndividualBoundGenerator(eps=self.new_eps)
         self.weight_scheduler: customized_scheduler.Scheduler = getattr(customized_scheduler,
@@ -82,10 +75,6 @@ class AdmmGCSize3D(AdmmGCSize):
             **{k: v for k, v in balance_scheduler_dict.items() if k != "name"})
         self.gc_scheduler: customized_scheduler.Scheduler = getattr(customized_scheduler, gc_scheduler_dict['name'])(
             **{k: v for k, v in gc_scheduler_dict.items() if k != "name"})
-
-        self.dicemeter = {}
-        self.dicemeter[0] = AverageValueMeter()
-        self.dicemeter[1] = AverageValueMeter()
 
     def step(self):
         self.weight_scheduler.step()
@@ -108,38 +97,25 @@ class AdmmGCSize3D(AdmmGCSize):
                 self.show('s', fig_num=2)
 
     def set_input(self, img: torch.Tensor, gt: torch.Tensor, weak_gt: torch.Tensor, bounds: torch.Tensor,
-                  paths: Tuple[str]):
+                  paths: Tuple[str] = None, *args, **kwargs):
         self.img: torch.Tensor = img.to(self.device)
         _, _, _, _ = self.img.shape
         self.gt: torch.Tensor = gt.to(self.device)
         _, _, _ = self.gt.shape
-        self.weak_gt: torch.Tensor = weak_gt.to(self.device)
-        self.path = [Path(p).stem for p in paths]
-        self.num_patient = int(re.compile(r'\d+').findall(self.path[0])[0])
-        if str(paths).find('ACDC') >= 0:
-            self.mode = 1 if re.compile(r'\d+').findall(self.path[0])[1] != '01' else 0
-        else:
-            self.mode = 0
-        self.mode_atlas = self.atlas[0][self.mode]
-        assert isinstance(self.mode_atlas, np.ndarray)
-        assert self.mode_atlas.shape.__len__() == 3
-        idxAtlasMin = np.array(self.mode_atlas.nonzero()).min(1)
-        idxAtlasMax = np.array(self.mode_atlas.nonzero()).max(1)
-        self.boxMin = idxAtlasMin - 1
-        self.boxMax = idxAtlasMax + 1
-        cc = self.center[self.num_patient][self.mode]
-        assert isinstance(cc, np.ndarray)
-        prior = self.mode_atlas.copy()
-        prior[self.mode_atlas <= 0] = -1e6
-        prior[self.mode_atlas >= 1] = 1e6
-        self.prior = prior[
-                     self.boxMin[0]:self.boxMax[0] + 1,
-                     self.boxMin[1]:self.boxMax[1] + 1,
-                     self.boxMin[2]:self.boxMax[2] + 1
-                     ]
-        self.cc = self.center[self.num_patient][self.mode]
+        self.prior: torch.Tensor = weak_gt.to(self.device)
+        self.ce_prior = self.prior.squeeze(1).clone()
+        self.ce_prior[(0<self.ce_prior) & (self.ce_prior<1)]=-1
+        self.ce_prior= self.ce_prior.long()
+        assert set(self.ce_prior.unique().cpu().numpy()).issubset(set([0,1,-1]))
 
-        # we have to update the bounds to be the individual bounds
+        self.cropMin = np.array(np.nonzero(self.prior.squeeze(1).cpu()).min(0)[0]) - 1
+        self.cropMax = np.array(np.nonzero(self.prior.squeeze(1).cpu()).max(0)[0]) + 1
+        self.cropMin = np.array([max(x, 0) for x in self.cropMin])
+        self.cropMax = np.array([min(x, self.prior.squeeze(1).shape[i]) for i, x in enumerate(self.cropMax)])
+
+        self.path = [Path(p).stem for p in paths]
+        self.parent_path = Path(paths[0]).parent
+        self.num_patient = int(re.compile(r'\d+').findall(self.path[0])[0])
         bounds = self.threeD_size_generator(self.gt)
         self.lowbound: torch.Tensor = bounds[0, 1].to(self.device)
         self.highbound: torch.Tensor = bounds[1, 1].to(self.device)
@@ -155,77 +131,58 @@ class AdmmGCSize3D(AdmmGCSize):
         _, _, _ = self.v.shape
 
     def _update_gamma(self, ratio: float = 0.0):
+        cropMin = self.cropMin.astype(int)
+        cropMax = self.cropMax.astype(int)
 
-        imgMin = np.floor(self.boxMin + self.cc - self.atlasCenter)
-        imgMax = np.floor(self.boxMax + self.cc - self.atlasCenter)
-        cropMin = np.maximum(imgMin, 0)
-        cropMax = np.zeros_like(cropMin)
-        cropMax[0] = np.minimum(imgMax[0], self.img.shape[2] - 1)
-        cropMax[1] = np.minimum(imgMax[1], self.img.shape[3] - 1)
-        cropMax[2] = np.minimum(imgMax[2], self.img.shape[0] - 1)
-        cropMax = cropMax.astype(int)
         crop_img = self.img.squeeze().cpu().numpy()[
-                   int(cropMin[2]):int(cropMax[2]) + 1,
-                   int(cropMin[0]):int(cropMax[0] + 1),
-                   int(cropMin[1]):int(cropMax[1] + 1)
+                   int(cropMin[0]):int(cropMax[0]) + 1,
+                   int(cropMin[1]):int(cropMax[1] + 1),
+                   int(cropMin[2]):int(cropMax[2] + 1)
                    ]
         # crop_img, _ = image_histogram_equalization(crop_img)
-
         mask_crop = self.gt.squeeze().cpu().numpy()[
-                    int(cropMin[2]):int(cropMax[2] + 1),
                     int(cropMin[0]):int(cropMax[0] + 1),
-                    int(cropMin[1]):int(cropMax[1] + 1)
+                    int(cropMin[1]):int(cropMax[1] + 1),
+                    int(cropMin[2]):int(cropMax[2] + 1)
                     ]
         assert crop_img.shape == mask_crop.shape
+        priorCrop = self.prior.squeeze(1)[
+                    int(cropMin[0]):int(cropMax[0] + 1),
+                    int(cropMin[1]):int(cropMax[1] + 1),
+                    int(cropMin[2]):int(cropMax[2] + 1)
+                    ].cpu().numpy().copy()
+        priorCrop[priorCrop >= 1] = 1e6
+        priorCrop[priorCrop <= 0] = -1e6
 
-        priorMin = cropMin - imgMin + 1 - 1  # for python 0 indexing
-        priorMax = self.prior.shape + cropMax - imgMax - 1
-        priorCrop = self.prior[
-                    int(priorMin[0]):int(priorMax[0] + 1),
-                    int(priorMin[1]):int(priorMax[1] + 1),
-                    int(priorMin[2]):int(priorMax[2] + 1)
-                    ]
-        priorCrop = np.moveaxis(priorCrop, 2, 0)
+        # priorCrop = np.moveaxis(priorCrop, 2, 0)
         assert crop_img.shape == priorCrop.shape
         g = maxflow.Graph[float](0, 0)
         nodeids = g.add_grid_nodes(list(priorCrop.shape))
-        g = self._set_boundary_term(g, nodeids, crop_img, lumda=1, sigma=0.0001, kernelsize=5)
+        g = self._set_boundary_term(g, nodeids, crop_img, lumda=100, sigma=0.0001, kernelsize=5)
 
-        crop_score = self.score[:, 1].detach().cpu().numpy().squeeze()[
-                     int(cropMin[2]):int(cropMax[2] + 1),
-                     int(cropMin[0]):int(cropMax[0] + 1),
-                     int(cropMin[1]):int(cropMax[1] + 1)
-                     ]
-        g.add_grid_tedges(nodeids, (1 - ratio) * (-0.5 + priorCrop) + ratio * crop_score, np.zeros_like(priorCrop))
+        crop_probability = F.softmax(self.score, 1)[:, 1].detach().cpu().numpy().squeeze()[
+                           int(cropMin[0]):int(cropMax[0] + 1),
+                           int(cropMin[1]):int(cropMax[1] + 1),
+                           int(cropMin[2]):int(cropMax[2] + 1)
+                           ]
+
+        g.add_grid_tedges(nodeids, (-0.5 + (1 - ratio) * priorCrop + ratio * crop_probability + self.u[
+                                                                                                int(cropMin[0]):int(cropMax[0] + 1),
+                                                                                                int(cropMin[1]):int(cropMax[1] + 1),
+                                                                                                int(cropMin[2]):int(cropMax[2] + 1)
+                                                                                                ]),
+                          np.zeros_like(priorCrop))
         g.maxflow()
         sgm = g.get_grid_segments(nodeids) * 1
         crop_gamma = np.int_(np.logical_not(sgm))
-
-        dice = 2 * (((mask_crop & crop_gamma) > 0).sum() + 1e-6) / (
-                (mask_crop > 0).sum() + (crop_gamma > 0).sum() + 1e-6)
-        self.dicemeter[self.mode].add(dice)
-        print(f'{self.num_patient}:dice:{dice}')
         new_gamma = np.zeros_like(self.gamma)
         new_gamma[
-        int(cropMin[2]):int(cropMax[2]) + 1,
-        int(cropMin[0]):int(cropMax[0] + 1),
-        int(cropMin[1]):int(cropMax[1] + 1)
+            int(cropMin[0]):int(cropMax[0]) + 1,
+            int(cropMin[1]):int(cropMax[1] + 1),
+            int(cropMin[2]):int(cropMax[2] + 1)
         ] = crop_gamma
         assert self.gamma.shape == new_gamma.shape
         self.gamma = new_gamma
-
-        # this is for the CE.
-        ce_prior = np.zeros_like(self.gamma).astype(float)
-        ce_prior[
-        int(cropMin[2]):int(cropMax[2]) + 1,
-        int(cropMin[0]):int(cropMax[0] + 1),
-        int(cropMin[1]):int(cropMax[1] + 1)
-        ] = priorCrop
-        ce_prior[ce_prior >= 1] = 1
-        ce_prior[ce_prior <= 0] = 0
-        ce_prior[np.where((0 < ce_prior) & (ce_prior < 1))] = -1
-        self.ce_prior = ce_prior
-        assert self.gamma.shape == ce_prior.shape
 
     def _set_boundary_term(self, g, nodeids, img, lumda, sigma, kernelsize):
         lumda = float(lumda)
@@ -268,7 +225,6 @@ class AdmmGCSize3D(AdmmGCSize):
         return shifted_matrix
 
     def _update_s_torch(self):
-        # print('this is the 3D size proposal')
         s_score = 0.5 - (F.softmax(self.score, 1)[:, 1].squeeze() + self.v)
         _, _, _ = s_score.shape
         original_shape = s_score.shape
@@ -278,7 +234,7 @@ class AdmmGCSize3D(AdmmGCSize):
 
         sorted_value, sorted_index = torch.sort(s_score.view(-1))
         useful_pixel_number = (sorted_value < 0).sum()
-        if self.lowbound < useful_pixel_number and self.highbound > useful_pixel_number:
+        if self.lowbound < useful_pixel_number < self.highbound:
             self.s = ((s_score < 0) * 1.0).reshape(original_shape)
         elif useful_pixel_number <= self.lowbound:
             self.s = ((s_score <= sorted_value[self.lowbound + 1]) * 1.0).reshape(original_shape)
@@ -291,9 +247,10 @@ class AdmmGCSize3D(AdmmGCSize):
 
     def _update_theta(self, criterion):
         # for cross entropy
+
         for i in range(self.OptimInnerLoopNum):
-            ce_prior = torch.from_numpy(self.ce_prior).long().to(self.device)
-            CE_loss = nn.CrossEntropyLoss(ignore_index=-1)(self.score, ce_prior)
+
+            CE_loss = nn.CrossEntropyLoss(ignore_index=-1)(self.score, self.ce_prior)
 
             current_n_gamma_p_u = torch.from_numpy(-self.gamma + self.u).float().to(self.device)
             size_loss = self.p_v / 2 * \
@@ -305,7 +262,7 @@ class AdmmGCSize3D(AdmmGCSize):
             total_loss = CE_loss + \
                          self.weight_scheduler.value / (self.weight_scheduler.value + 1) * (
                                  self.balance_scheduler.value * size_loss + (
-                                     1 - self.balance_scheduler.value) * gamma_loss)
+                                 1 - self.balance_scheduler.value) * gamma_loss)
             self.model.optimizer.zero_grad()
             total_loss.backward()
             self.model.optimizer.step()

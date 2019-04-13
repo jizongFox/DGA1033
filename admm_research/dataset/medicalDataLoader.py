@@ -108,7 +108,7 @@ def make_dataset(root, mode, subfolder="WeaklyAnnotations"):
 
 class MedicalImageDataset(Dataset):
 
-    def __init__(self, root_dir, mode, subfolder='WeaklyAnnotations', transform=None, augment=None, equalize=False,
+    def __init__(self, root_dir, mode, subfolder='WeaklyAnnotations', is_subfolder_mask=True,transform=None, augment=None, equalize=False,
                  metainfoGenerator_dict: dict = None):
         """
         Args:
@@ -121,6 +121,7 @@ class MedicalImageDataset(Dataset):
         self.root_dir = root_dir
         self.transform = transform
         self.subfolder = subfolder
+        self.is_subfolder_mask=is_subfolder_mask
         self.imgs = make_dataset(root_dir, mode, subfolder)
         self.augment = augment
         self.equalize = equalize
@@ -156,7 +157,10 @@ class MedicalImageDataset(Dataset):
         self.transform = self.transform if self.transform is not None else default_transform
         img = self.transform['Img'](img)
         mask = self.transform['mask'](mask)
-        mask_weak = self.transform['mask'](mask_weak)
+        if self.is_subfolder_mask:
+            mask_weak = self.transform['mask'](mask_weak)
+        else:
+            mask_weak = self.transform['prior'](mask_weak)
         if getattr(self, 'metainGenerator'):
             meta_info = self.metainGenerator(mask)
             return [img, mask, mask_weak, img_path], meta_info

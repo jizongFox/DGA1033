@@ -14,7 +14,7 @@ class FullySupervisedWrapper(AdmmBase):
         self.criterion = nn.CrossEntropyLoss()
         print(f'loss used here is {self.criterion}')
 
-    def set_input(self, img, gt, weak_gt, bounds):
+    def set_input(self, img, gt, weak_gt, bounds,*args,**kwargs):
         self.img: torch.Tensor = img.to(self.device)
         _, _, _, _ = self.img.shape
         self.gt: torch.Tensor = gt.to(self.device)

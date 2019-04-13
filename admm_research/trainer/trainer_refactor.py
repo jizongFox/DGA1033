@@ -11,8 +11,9 @@ from easydict import EasyDict as edict
 from admm_research import LOGGER, config_logger
 from admm_research import ModelMode
 from admm_research.method.ADMM_refactor import AdmmBase
-from admm_research.utils import tqdm_, flatten_dict
+from admm_research.utils import tqdm_, flatten_dict, class2one_hot
 from admm_research.metrics2 import DiceMeter, AverageValueMeter, AggragatedMeter, ListAggregatedMeter
+from admm_research.postprocessing.viewer import multi_slice_viewer
 
 
 class Base(ABC):
@@ -87,7 +88,9 @@ class ADMM_Trainer(Base):
 
     def start_training(self):
         METERS = edict()
-        METERS.tra_2d_dice = AggragatedMeter()
+        METERS.tra_3d_dice = AggragatedMeter()
+        METERS.tra_gc_dice = AggragatedMeter()
+        METERS.tra_sz_dice = AggragatedMeter()
         METERS.val_2d_dice = AggragatedMeter()
         METERS.val_3d_dice = AggragatedMeter()
         wholeMeter = ListAggregatedMeter(names=list(METERS.keys()), listAggregatedMeter=list(METERS.values()))
@@ -102,10 +105,17 @@ class ADMM_Trainer(Base):
         Path(self.save_dir, 'meters').mkdir(exist_ok=True)
 
         for epoch in range(self.begin_epoch + 1, self.max_epoch + 1):
-            tra_2d_dice = self._main_loop(self.train_dataloader, epoch, mode=ModelMode.TRAIN)
+            tra_3d_dice, tra_gc_dice, tra_sz_dice = self._main_loop(
+                self.train_dataloader,
+                epoch,
+                mode=ModelMode.TRAIN
+            )
             with torch.no_grad():
-                val_2d_dice, val_3d_dice = self._eval_loop(val_dataloader=self.val_dataloader, epoch=epoch,
-                                                           mode=ModelMode.EVAL)
+                val_2d_dice, val_3d_dice = self._eval_loop(
+                    val_dataloader=self.val_dataloader,
+                    epoch=epoch,
+                    mode=ModelMode.EVAL
+                )
 
             # save results:
             for k, v in METERS.items():
@@ -122,7 +132,9 @@ class ADMM_Trainer(Base):
         assert self.admm.model.training == True
         assert dataloader.dataset.training == ModelMode.TRAIN
         # define recorder for one epoch
-        train_dice = DiceMeter(method='2d', report_axises=[1], C=2)
+        train_dice = DiceMeter(method='3d', report_axises=[1], C=2)
+        gc_dice = DiceMeter(method='3d', report_axises=[1], C=2)
+        size_dice = DiceMeter(method='3d', report_axises=[1], C=2)
         dataloader_ = tqdm_(dataloader) if self.use_tqdm else dataloader
 
         for i, ((img, gt, wgt, path), size) in enumerate(dataloader_):
@@ -130,14 +142,23 @@ class ADMM_Trainer(Base):
             self.admm.set_input(img, gt, wgt, size[:, :, 1], path)
             self.admm.update(self.criterion)
             train_dice.add(self.admm.score, gt)
+            try:
+                gc_dice.add(class2one_hot(torch.from_numpy(self.admm.gamma), C=2).float().to(self.device), gt)
+            except:
+                pass
+            try:
+                size_dice.add(class2one_hot(self.admm.s.float()).float().to(self.device), gt)
+            except:
+                pass
             if self.use_tqdm:
-                report_dict = train_dice.summary()
+                report_dict = flatten_dict(
+                    {'tra': train_dice.detailed_summary(), 'gc': gc_dice.summary(), 'size': size_dice.summary()})
                 dataloader_.set_postfix(report_dict)
         if self.use_tqdm:
             report_dict = train_dice.summary()
             string_dict = f', '.join([f"{k}:{v:.3f}" for k, v in report_dict.items()])
             print(f'Training   epoch: {epoch} -> {string_dict}')
-        return train_dice.summary()
+        return train_dice.summary(), gc_dice.summary(), size_dice.summary()
 
     def _eval_loop(self, val_dataloader, epoch, mode=ModelMode.EVAL):
         val_dataloader.dataset.set_mode(mode)

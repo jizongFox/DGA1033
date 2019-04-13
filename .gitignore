@@ -25,3 +25,4 @@ _zz*.py
 admm_research/dataset/PROSTATE/.ipynb_checkpoints/
 admm_research/dataset/PROSTATE/explore_data.ipynb
 **/*.mat
+/admm_research/postprocessing/file/

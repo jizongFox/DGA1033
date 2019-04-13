@@ -1,6 +1,5 @@
 import yaml
 from pprint import pprint
-from pathlib import Path
 from admm_research.models import Segmentator
 from admm_research.dataset import loader_interface
 from admm_research.trainer.trainer_refactor import ADMM_Trainer

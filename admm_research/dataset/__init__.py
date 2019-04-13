@@ -46,8 +46,14 @@ def segment_transform(size,mapping=None):
         # transforms.ToTensor()
         ToLabel(mapping)
     ])
+    prior_transform = transforms.Compose([
+        transforms.Resize(size,interpolation=Image.NEAREST),
+        transforms.ToTensor()
+        # ToLabel(mapping)
+    ])
     return {'Img': img_transform,
-            'mask': mask_transform}
+            'mask': mask_transform,
+            'prior':prior_transform}
 
 
 def augment(img, mask, weak_mask):
