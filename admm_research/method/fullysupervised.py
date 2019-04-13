@@ -24,10 +24,10 @@ class FullySupervisedWrapper(AdmmBase):
         self.highbound: torch.Tensor = bounds[:, 1].to(self.device)
         self.score: torch.Tensor = self.model.predict(img, logit=True)
         _, _, _, _ = self.score.shape
-        self.s: torch.Tensor = pred2segmentation(self.score)  # b, w, h
-        _, _, _ = self.s.shape
-        self.v = torch.zeros_like(self.s, dtype=torch.float).to(self.device)  # b w h
-        _, _, _ = self.v.shape
+        # self.s: torch.Tensor = pred2segmentation(self.score)  # b, w, h
+        # _, _, _ = self.s.shape
+        # self.v = torch.zeros_like(self.s, dtype=torch.float).to(self.device)  # b w h
+        # _, _, _ = self.v.shape
 
     def update(self, *args, **kwargs):
         self.model.optimizer.zero_grad()

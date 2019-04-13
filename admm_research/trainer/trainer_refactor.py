@@ -147,15 +147,14 @@ class ADMM_Trainer(Base):
             except:
                 pass
             try:
-                size_dice.add(class2one_hot(self.admm.s.float()).float().to(self.device), gt)
+                size_dice.add(class2one_hot(self.admm.s.float(),C=2).float().to(self.device), gt)
             except:
                 pass
             if self.use_tqdm:
                 report_dict = flatten_dict(
-                    {'tra': train_dice.detailed_summary(), 'gc': gc_dice.summary(), 'size': size_dice.summary()})
-                dataloader_.set_postfix(report_dict)
+                    {'tra': train_dice.detailed_summary(), 'gc': gc_dice.summary(), 'sz': size_dice.summary()})
+                dataloader_.set_postfix({k:v for k,v in report_dict.items() if v>0})
         if self.use_tqdm:
-            report_dict = train_dice.summary()
             string_dict = f', '.join([f"{k}:{v:.3f}" for k, v in report_dict.items()])
             print(f'Training   epoch: {epoch} -> {string_dict}')
         return train_dice.summary(), gc_dice.summary(), size_dice.summary()

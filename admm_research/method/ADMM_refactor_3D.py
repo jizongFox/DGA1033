@@ -121,9 +121,11 @@ class AdmmGCSize3D(AdmmGCSize):
         self.highbound: torch.Tensor = bounds[1, 1].to(self.device)
         self.score: torch.Tensor = self.model.predict(img, logit=True)
         _, _, _, _ = self.score.shape
-        self.gamma: np.ndarray = pred2segmentation(self.score).cpu().numpy()
+        self.gamma: np.ndarray = np.zeros_like(self.gt.squeeze().cpu())
+        # pred2segmentation(self.score).cpu().numpy()
         _, _, _ = self.gamma.shape
-        self.s: torch.Tensor = pred2segmentation(self.score)  # b, w, h
+        self.s: torch.Tensor = torch.zeros_like(self.gt.squeeze()).to(self.device)
+        # pred2segmentation(self.score)  # b, w, h
         _, _, _ = self.s.shape
         self.u = np.zeros_like(self.s.cpu())
         _, _, _ = self.u.shape

@@ -36,7 +36,7 @@ def build_dataloader(train_set, val_set, num_workers, batch_size, shuffle=True, 
                               batch_size=batch_size
                               )
     if group_train:
-        tra_sampler = PatientSampler(train_set, "(patient\d+_\d+)_\d+", shuffle=False)
+        tra_sampler = PatientSampler(train_set, "(patient\d+_\d+)_\d+", shuffle=True)
         train_loader = DataLoader(train_set,
                                   num_workers=num_workers,
                                   batch_size=1,

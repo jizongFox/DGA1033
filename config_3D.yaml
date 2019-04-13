@@ -18,16 +18,16 @@ Arch:
   num_classes: 2
 Optim:
   name: Adam
-  lr: 0.005
+  lr: 0.0005
   weight_decay: 0.00001
 Scheduler:
   name: StepLR
-  step_size: 100
+  step_size: 75
   gamma: 0.3
 
 ADMM_Method:
   name: gc_size_3d
-  OptimInnerLoopNum: 2
+  OptimInnerLoopNum: 4
   ADMMLoopNum: 2
   device: cuda
   visualization: True
@@ -37,24 +37,24 @@ ADMM_Method:
   weight_scheduler_dict:
     name:  RampScheduler
     begin_epoch: 0
-    max_epoch: 100
+    max_epoch: 200
     max_value: 10
   balance_scheduler_dict:
     name:  RampScheduler
-    begin_epoch: 0
-    max_epoch: 100
+    begin_epoch: 20
+    max_epoch: 200
     max_value: 0.8
 
   gc_scheduler_dict:
     name:  RampScheduler
-    begin_epoch: 0
-    max_epoch: 100
+    begin_epoch: 20
+    max_epoch: 150
     max_value: 0.8
 
 
 Trainer:
   save_dir: runs/prostate
-  max_epoch: 500
+  max_epoch: 250
   use_tqdm: True
 #  checkpoint: archives/PROSTATE_gt_oracle/gc_size
 
