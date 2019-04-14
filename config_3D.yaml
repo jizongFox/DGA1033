@@ -18,7 +18,7 @@ Arch:
   num_classes: 2
 Optim:
   name: Adam
-  lr: 0.0005
+  lr: 0.0001
   weight_decay: 0.00001
 Scheduler:
   name: StepLR
@@ -37,18 +37,18 @@ ADMM_Method:
   weight_scheduler_dict:
     name:  RampScheduler
     begin_epoch: 0
-    max_epoch: 200
+    max_epoch: 300
     max_value: 10
   balance_scheduler_dict:
     name:  RampScheduler
     begin_epoch: 20
-    max_epoch: 200
+    max_epoch: 300
     max_value: 0.8
 
   gc_scheduler_dict:
     name:  RampScheduler
     begin_epoch: 20
-    max_epoch: 150
+    max_epoch: 300
     max_value: 0.8
 
 

@@ -252,8 +252,10 @@ class AdmmGCSize3D(AdmmGCSize):
             size_loss = self.p_v / 2 * \
                         (F.softmax(self.score, dim=1)[:, 1] + (-self.s.float() + self.v.float())).norm(
                             dim=[1, 2]).mean() ** 2
+            size_loss /= list(self.s.reshape(-1).size())[0]
             gamma_loss = self.p_u / 2 * \
                          (F.softmax(self.score, dim=1)[:, 1] + current_n_gamma_p_u).norm(dim=[1, 2]).mean() ** 2
+            gamma_loss /=self.gamma.reshape(-1).size
 
             total_loss = CE_loss + \
                          self.weight_scheduler.value / (self.weight_scheduler.value + 1) * (

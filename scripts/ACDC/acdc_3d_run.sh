@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 gpu_num=$1
 commend=$2
-max_epoch=250
+max_epoch=500
 choosen_class=LV
 subfolder="${choosen_class}_prior"
 save_dir=$subfolder
