@@ -30,7 +30,7 @@ ADMM_Method:
   OptimInnerLoopNum: 4
   ADMMLoopNum: 2
   device: cuda
-  visualization: True
+  visualization: False
   new_eps: 0.1
   p_u: 10.0
   p_v: 10.0

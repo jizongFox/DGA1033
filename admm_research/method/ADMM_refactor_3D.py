@@ -260,8 +260,8 @@ class AdmmGCSize3D(AdmmGCSize):
                                  self.balance_scheduler.value * size_loss + (
                                  1 - self.balance_scheduler.value) * gamma_loss)
 
-            if self.p_u > 0 or self.p_v > 0:
-                total_loss -= Entropy()(F.softmax(self.score,1)).mean() *0.1
+            if  self.p_v > 0:
+                total_loss -= Entropy()(F.softmax(self.score,1)).mean() *0.01
 
             self.model.optimizer.zero_grad()
             total_loss.backward()

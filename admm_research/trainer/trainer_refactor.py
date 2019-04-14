@@ -153,7 +153,7 @@ class ADMM_Trainer(Base):
             if self.use_tqdm:
                 report_dict = flatten_dict(
                     {'tra': train_dice.detailed_summary(), 'gc': gc_dice.summary(), 'sz': size_dice.summary()})
-                dataloader_.set_postfix({k:v for k,v in report_dict.items() if v>0})
+                dataloader_.set_postfix({k:v for k,v in report_dict.items() if v>1e-6})
         if self.use_tqdm:
             string_dict = f', '.join([f"{k}:{v:.3f}" for k, v in report_dict.items()])
             print(f'Training   epoch: {epoch} -> {string_dict}')
