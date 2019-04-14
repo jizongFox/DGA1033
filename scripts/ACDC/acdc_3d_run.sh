@@ -44,7 +44,7 @@ mv -f "runs/${save_dir}/size" "archives/${save_dir}"
 run_gc(){
 rm -rf "runs/${save_dir}/size"
 CUDA_VISIBLE_DEVICES=${gpu_num} python main.py  \
-Trainer.save_dir="runs/${save_dir}/size" \
+Trainer.save_dir="runs/${save_dir}/gc" \
 Dataset.dataset_name=cardiac \
 Trainer.max_epoch=${max_epoch} \
 Trainer.use_tqdm=${use_tqdm} \

@@ -304,6 +304,15 @@ from skimage.io import imsave
 
 
 def save_images(segs: Tensor, names: Iterable[str], root: Union[str, Path], mode: str, iter: int, seg_num=None) -> None:
+    '''save_images saves Tensor in 0-C setting to save in .png format.
+    :param segs: 0-C Tensor with shape b,w,h
+    :param names: names of b
+    :param root: saved path
+    :param mode: the string after root, usually as a mode
+    :param iter: int interatition
+    :param seg_num: default as None is there is no specified case
+    :return: None
+    '''
     (b, w, h) = segs.shape  # type: Tuple[int, int,int] # Since we have the class numbers, we do not need a C axis
     with warnings.catch_warnings():
         warnings.filterwarnings('ignore', category=UserWarning)
