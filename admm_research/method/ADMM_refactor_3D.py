@@ -1,29 +1,20 @@
-import time
-from abc import ABC, abstractmethod
-from multiprocessing.dummy import Pool
-import numpy as np
-import matplotlib.pyplot as plt
-import torch
 import re
-import torch.nn.functional as F
 from pathlib import Path
-from functools import partial
-from itertools import repeat
-from scipy.io import loadmat
+from typing import Tuple
+
+import matplotlib.pyplot as plt
 import maxflow
-from admm_research.metrics2 import DiceMeter, AverageValueMeter
+import numpy as np
+import torch
+import torch.nn.functional as F
+from torch import nn
+
+from admm_research.loss import Entropy
 from admm_research.models import Segmentator
 from admm_research.utils import pred2segmentation
-from .gc import _multiprocess_Call
 from .ADMM_refactor import AdmmGCSize
 from ..dataset.metainfoGenerator import IndividualBoundGenerator
 from ..scheduler import customized_scheduler
-from typing import Tuple
-from torch import nn
-from admm_research.postprocessing.viewer import multi_slice_viewer
-import numpy as np
-from admm_research.utils import save_images
-from skimage.io import imsave
 
 
 def image_histogram_equalization(image, number_bins=256):
@@ -104,9 +95,9 @@ class AdmmGCSize3D(AdmmGCSize):
         _, _, _ = self.gt.shape
         self.prior: torch.Tensor = weak_gt.to(self.device)
         self.ce_prior = self.prior.squeeze(1).clone()
-        self.ce_prior[(0<self.ce_prior) & (self.ce_prior<1)]=-1
-        self.ce_prior= self.ce_prior.long()
-        assert set(self.ce_prior.unique().cpu().numpy()).issubset(set([0,1,-1]))
+        self.ce_prior[(0 < self.ce_prior) & (self.ce_prior < 1)] = -1
+        self.ce_prior = self.ce_prior.long()
+        assert set(self.ce_prior.unique().cpu().numpy()).issubset(set([0, 1, -1]))
 
         self.cropMin = np.array(np.nonzero(self.prior.squeeze(1).cpu()).min(0)[0]) - 1
         self.cropMax = np.array(np.nonzero(self.prior.squeeze(1).cpu()).max(0)[0]) + 1
@@ -169,9 +160,12 @@ class AdmmGCSize3D(AdmmGCSize):
                            ]
 
         g.add_grid_tedges(nodeids, (-0.5 + (1 - ratio) * priorCrop + ratio * crop_probability + self.u[
-                                                                                                int(cropMin[0]):int(cropMax[0] + 1),
-                                                                                                int(cropMin[1]):int(cropMax[1] + 1),
-                                                                                                int(cropMin[2]):int(cropMax[2] + 1)
+                                                                                                int(cropMin[0]):int(
+                                                                                                    cropMax[0] + 1),
+                                                                                                int(cropMin[1]):int(
+                                                                                                    cropMax[1] + 1),
+                                                                                                int(cropMin[2]):int(
+                                                                                                    cropMax[2] + 1)
                                                                                                 ]),
                           np.zeros_like(priorCrop))
         g.maxflow()
@@ -179,9 +173,9 @@ class AdmmGCSize3D(AdmmGCSize):
         crop_gamma = np.int_(np.logical_not(sgm))
         new_gamma = np.zeros_like(self.gamma)
         new_gamma[
-            int(cropMin[0]):int(cropMax[0]) + 1,
-            int(cropMin[1]):int(cropMax[1] + 1),
-            int(cropMin[2]):int(cropMax[2] + 1)
+        int(cropMin[0]):int(cropMax[0]) + 1,
+        int(cropMin[1]):int(cropMax[1] + 1),
+        int(cropMin[2]):int(cropMax[2] + 1)
         ] = crop_gamma
         assert self.gamma.shape == new_gamma.shape
         self.gamma = new_gamma
@@ -265,6 +259,10 @@ class AdmmGCSize3D(AdmmGCSize):
                          self.weight_scheduler.value / (self.weight_scheduler.value + 1) * (
                                  self.balance_scheduler.value * size_loss + (
                                  1 - self.balance_scheduler.value) * gamma_loss)
+
+            if self.p_u > 0 or self.p_v > 0:
+                total_loss -= Entropy()(F.softmax(self.score,1)).mean() *0.1
+
             self.model.optimizer.zero_grad()
             total_loss.backward()
             self.model.optimizer.step()
