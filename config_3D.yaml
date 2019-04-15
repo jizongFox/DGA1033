@@ -49,7 +49,7 @@ ADMM_Method:
     name:  RampScheduler
     begin_epoch: 20
     max_epoch: 300
-    max_value: 0.8
+    max_value: 0.5
 
 
 Trainer:
