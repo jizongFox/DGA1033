@@ -255,15 +255,15 @@ class AdmmGCSize3D(AdmmGCSize):
             size_loss /= list(self.s.reshape(-1).size())[0]
             gamma_loss = self.p_u / 2 * \
                          (F.softmax(self.score, dim=1)[:, 1] + current_n_gamma_p_u).norm(dim=[1, 2]).mean() ** 2
-            gamma_loss /=self.gamma.reshape(-1).size
+            gamma_loss /= self.gamma.reshape(-1).size
 
             total_loss = CE_loss + \
                          self.weight_scheduler.value / (self.weight_scheduler.value + 1) * (
                                  self.balance_scheduler.value * size_loss + (
                                  1 - self.balance_scheduler.value) * gamma_loss)
 
-            if  self.p_v > 0:
-                total_loss -= Entropy()(F.softmax(self.score,1)).mean() *0.01
+            if self.p_v > 0:
+                total_loss -= Entropy()(F.softmax(self.score, 1)).mean() * 0.01
 
             self.model.optimizer.zero_grad()
             total_loss.backward()

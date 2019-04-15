@@ -18,8 +18,8 @@ Arch:
   num_classes: 2
 Optim:
   name: Adam
-  lr: 0.0001
-  weight_decay: 0.00001
+  lr: 0.0002
+  weight_decay: 0.0001
 Scheduler:
   name: StepLR
   step_size: 75
