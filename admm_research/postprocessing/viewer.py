@@ -10,9 +10,9 @@
 # #
 # # Extract the contents into the temporary directory we created earlier
 # zipfile.ZipFile(fn).extractall(path=d)
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+
 
 def remove_keymap_conflicts(new_keys_set):
     for prop in plt.rcParams:
@@ -22,10 +22,14 @@ def remove_keymap_conflicts(new_keys_set):
             for key in remove_list:
                 keys.remove(key)
 
+
 from typing import List, Union
 import torch
-Tensor=Union[np.ndarray,torch.Tensor]
-def multi_slice_viewer(img_volume:Tensor, gt_volumes:Union[Tensor,List[Tensor]]=None)->None:
+
+Tensor = Union[np.ndarray, torch.Tensor]
+
+
+def multi_slice_viewer(img_volume: Tensor, gt_volumes: Union[Tensor, List[Tensor]] = None) -> None:
     if not isinstance(gt_volumes, list):
         gt_volumes = [gt_volumes]
     if gt_volumes[0] is not None:
@@ -40,14 +44,13 @@ def multi_slice_viewer(img_volume:Tensor, gt_volumes:Union[Tensor,List[Tensor]]=
         ax.gt_volume = volume
         ax.img_volume = img_volume
         ax.index = img_volume.shape[0] // 2
-        ax.imshow(ax.img_volume[ax.index],cmap='gray')
+        ax.imshow(ax.img_volume[ax.index], cmap='gray')
         if volume is not None:
             ax.con = ax.contour(ax.gt_volume[ax.index])
         ax.set_title(f'plane = {ax.index}')
         ax.axis('off')
 
     remove_keymap_conflicts({'j', 'k'})
-
 
     fig.canvas.mpl_connect('key_press_event', process_key)
     fig.canvas.mpl_connect('scroll_event', process_mouse_wheel)
@@ -106,7 +109,6 @@ if __name__ == '__main__':
 
     # Initialize the subplot panels side by side
 
-    import tempfile
     import os
 
     # Create a temporary directory
@@ -118,9 +120,7 @@ if __name__ == '__main__':
 
     # Return the tail of the path
     os.path.basename('http://google.com/attention.zip')
-    from urllib.request import urlretrieve
 
-    from skimage import io
     import nibabel
 
     # struct_arr = io.imread("https://s3.amazonaws.com/assets.datacamp.com/blog_assets/attention-mri.tif")

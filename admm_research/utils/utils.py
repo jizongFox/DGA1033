@@ -100,14 +100,6 @@ def evaluate_dice(val_dataloader, network, save=False):
         return [[b_dice_meter.value()[0], f_dice_meter.value()[0]], None]
 
 
-def save_images(images, img, prediction, mask, weak_mask):
-    if len(images) >= 30 * 4:
-        return images
-    segm = pred2segmentation(prediction)
-    images.extend([img[0], weak_mask[0].float(), mask[0].float(), segm.float()])
-    return images
-
-
 class Colorize:
 
     def __init__(self, n=4):
@@ -156,7 +148,7 @@ def show_image_mask(*args):
 # fns
 from torch import Tensor, einsum
 from functools import partial
-from typing import Callable, Iterable, List, Set, Tuple, TypeVar, Union
+from typing import Callable, Iterable, List, Set, Tuple, TypeVar, Union, Optional, Dict, Any
 
 A = TypeVar("A")
 B = TypeVar("B")
@@ -337,22 +329,22 @@ def yaml_parser() -> dict:
     parser = argparse.ArgumentParser('Augment parser for yaml config')
     parser.add_argument('strings', nargs='*', type=str, default=[''])
 
-    args: argparse.Namespace = parser.parse_args()
-    args: dict = _parser(args.strings)
+    args: argparse.Namespace = parser.parse_args()  # type: ignore
+    args_dict: dict = _parser(args.strings)  # type: ignore
     # pprint(args)
-    return args
+    return args_dict
 
 
 def _parser(strings: List[str]) -> List[dict]:
     assert isinstance(strings, list)
     ## no doubled augments
     assert set(map_(lambda x: x.split('=')[0], strings)).__len__() == strings.__len__(), 'Augment doubly input.'
-    args: List[dict] = [_parser_(s) for s in strings]
+    args: List[Optional[Dict[Any, Any]]] = [_parser_(s) for s in strings]
     args = reduce(lambda x, y: dict_merge(x, y, True), args)
     return args
 
 
-def _parser_(input_string: str) -> Union[dict, None]:
+def _parser_(input_string: str) -> Optional[dict]:
     if input_string.__len__() == 0:
         return None
     assert input_string.find('=') > 0, f"Input args should include '=' to include the value"
