@@ -13,7 +13,7 @@ from admm_research import ModelMode
 from admm_research.method.ADMM_refactor import AdmmBase
 from admm_research.utils import tqdm_, flatten_dict, class2one_hot
 from admm_research.metrics2 import DiceMeter, AverageValueMeter, AggragatedMeter, ListAggregatedMeter
-from admm_research.postprocessing.viewer import multi_slice_viewer
+from admm_research.postprocessing._viewer import multi_slice_viewer
 
 
 class Base(ABC):

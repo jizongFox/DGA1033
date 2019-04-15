@@ -21,18 +21,15 @@ def get_parser() -> argparse.Namespace:
         description='Group and view 2D images with different masks.',
     )
     parser.add_argument('--img_source', type=str, required=True, help='2D image source folder as the background.')
-    parser.add_argument('--gt_folder', type=str, nargs='*', default=[], help='')
+    parser.add_argument('--gt_folders', type=str, nargs='*', default=[], help='')
+    parser.add_argument('--n_subject', type=int, default=2,
+                        help='How many subjects you want to display in one figure (default=2).')
+    parser.add_argument('--shuffle', action='store_true', help='Shuffle the patients.')
+    parser.add_argument('--crop', type=int, default=0, help="Crop image size (default=0).")
+    parser.add_argument('--group_pattern', type=str, default='patient\d+_\d+', help="group_pattern")
+    parser.add_argument('--img_extension', type=str, default='png', help="Image extension to select, default='png'")
+
     return parser.parse_args()
-
-
-class event_handler(object):
-
-    def __init__(self, drawfunction: Callable) -> None:
-        super().__init__()
-        self.drawfunction: Callable = drawfunction
-
-    def __call__(self, event):
-        pass
 
 
 class Volume(object):
@@ -47,9 +44,10 @@ class Volume(object):
     '''
 
     def __init__(self, img_folder: str, mask_folder_list: List[str], group_pattern=r'patient\d+_\d+',
-                 img_extension: str = 'png') -> None:
+                 img_extension: str = 'png', crop: int = 0) -> None:
         super().__init__()
         self.img_folder: Path = Path(img_folder)
+        self.crop = crop
         assert self.img_folder.exists(), self.img_folder
         self.mask_folder_list = [Path(m) for m in mask_folder_list]
         self.num_mask = len(self.mask_folder_list)
@@ -72,7 +70,8 @@ class Volume(object):
         self.identifies: List[str] = list(self.img_paths_group.keys())
         print(f'identifies: {self.identifies[:5]}...')
         self.current_identify = 0
-
+        self.img_source: np.ndarray
+        self.mask_dicts: Dict[str, np.ndarray]
         self.img_source, self.mask_dicts = self._preload_subjects(
             self.img_paths_group[self.identifies[self.current_identify]],
             self.mask_paths_group_dict[self.identifies[self.current_identify]])
@@ -83,8 +82,11 @@ class Volume(object):
             self.img_source, self.mask_dicts = self._preload_subjects(
                 self.img_paths_group[self.identifies[self.current_identify]],
                 self.mask_paths_group_dict[self.identifies[self.current_identify]])
+            if self.crop > 0:
+                self.img_source = self.img_source[:, self.crop:-self.crop, self.crop:-self.crop]
+                self.mask_dicts = {k: v[:, self.crop:-self.crop, self.crop:-self.crop] for k, v in
+                                   self.mask_dicts.items()}
         print(f'current identify num:{self.current_identify}')
-
         return self.img_source, self.mask_dicts, self.identifies[self.current_identify]
 
     def __cache__(self):
@@ -93,6 +95,10 @@ class Volume(object):
             self.img_source, self.mask_dicts = self._preload_subjects(
                 self.img_paths_group[self.identifies[self.current_identify]],
                 self.mask_paths_group_dict[self.identifies[self.current_identify]])
+            if self.crop > 0:
+                self.img_source = self.img_source[:, self.crop:-self.crop, self.crop:-self.crop]
+                self.mask_dicts = {k: v[:, self.crop:-self.crop, self.crop:-self.crop] for k, v in
+                                   self.mask_dicts.items()}
         print(f'current identify num:{self.current_identify}')
 
         return self.img_source, self.mask_dicts, self.identifies[self.current_identify]
@@ -152,7 +158,8 @@ class Multi_Slice_Viewer(object):
         self.volume.identifies = np.random.permutation(
             self.volume.identifies) if shuffle_subject else self.volume.identifies
 
-    def _preproccess_data(self, volume_output):
+    @staticmethod
+    def _preproccess_data(volume_output):
         img_volume, gt_volume_dict, subject_name = volume_output
         mask_volumes = list(gt_volume_dict.values())
         _, _, _ = img_volume.shape
@@ -160,7 +167,8 @@ class Multi_Slice_Viewer(object):
             mask_volumes = [mask_volumes]
         if mask_volumes[0] is not None:
             assert img_volume.shape == mask_volumes[0].shape
-        return img_volume, mask_volumes, subject_name
+        mask_names = list(gt_volume_dict.keys())
+        return img_volume, mask_volumes, subject_name, mask_names
 
     def show(self, ):
         fig, axs = plt.subplots(self.n_subject, self.volume.num_mask)
@@ -168,9 +176,10 @@ class Multi_Slice_Viewer(object):
         self.axs = axs if len(axs.shape) == 2 else axs[None, ...]
 
         for row in range(self.n_subject):
-            img_volume, mask_volumes, subject_name = self._preproccess_data(self.volume.__next__())
-            for i, (ax, mask_volume) in enumerate(zip(self.axs[row], mask_volumes)):
+            img_volume, mask_volumes, subject_name, mask_names = self._preproccess_data(self.volume.__next__())
+            for i, (ax, mask_volume, mask_name) in enumerate(zip(self.axs[row], mask_volumes, mask_names)):
                 ax.subject_name = subject_name
+                ax.mask_name = mask_name
                 ax.mask_volume = mask_volume
                 ax.img_volume = img_volume
                 ax.index = img_volume.shape[0] // 2
@@ -178,7 +187,7 @@ class Multi_Slice_Viewer(object):
                 if mask_volume is not None:
                     ax.con = ax.contour(ax.mask_volume[ax.index])
                 ax.axis('off')
-                ax.set_title(f'{subject_name} @ plane:{ax.index}')
+                ax.set_title(f'{subject_name} @ plane:{ax.index} with {mask_name}')
 
         fig.canvas.mpl_connect('scroll_event', self.process_mouse_wheel)
         fig.canvas.mpl_connect('button_press_event', self.process_mouse_button)
@@ -208,18 +217,23 @@ class Multi_Slice_Viewer(object):
     def _change_subject(self, mode):
         axs = self.axs
         for row in range(self.n_subject):
-            img_volume, mask_volumes, subject_name = self._preproccess_data(mode())
-            for i, (ax, mask_volume) in enumerate(zip(axs[row], mask_volumes)):
+            img_volume, mask_volumes, subject_name, mask_names = self._preproccess_data(mode())
+            for i, (ax, mask_volume, mask_name) in enumerate(zip(axs[row], mask_volumes, mask_names)):
                 ax.clear()
                 ax.subject_name = subject_name
+                ax.mask_name = mask_name
                 ax.mask_volume = mask_volume
                 ax.img_volume = img_volume
                 ax.index = img_volume.shape[0] // 2
                 ax.imshow(ax.img_volume[ax.index], cmap='gray')
                 if mask_volume is not None:
-                    ax.con = ax.contour(ax.mask_volume[ax.index])
+                    try:
+                        ax.con = ax.contour(ax.mask_volume[ax.index])
+                    except:
+                        import ipdb
+                        ipdb.set_trace()
                 ax.axis('off')
-                ax.set_title(f'{subject_name} @ plane:{ax.index}')
+                ax.set_title(f'{subject_name} @ plane:{ax.index} with {mask_name}')
 
     @staticmethod
     def _previous_slice(ax):
@@ -234,7 +248,7 @@ class Multi_Slice_Viewer(object):
         ax.images[0].set_array(img_volume[ax.index])
         if ax.mask_volume is not None:
             ax.con = ax.contour(ax.mask_volume[ax.index])
-        ax.set_title(f'{ax.subject_name} @ plane:{ax.index}')
+        ax.set_title(f'{ax.subject_name} @ plane:{ax.index} with {ax.mask_name}')
 
     @staticmethod
     def _next_slice(ax):
@@ -249,18 +263,22 @@ class Multi_Slice_Viewer(object):
         ax.images[0].set_array(img_volume[ax.index])
         if ax.mask_volume is not None:
             ax.con = ax.contour(ax.mask_volume[ax.index])
-        ax.set_title(f'plane = {ax.index}')
-        ax.set_title(f'{ax.subject_name} @ plane:{ax.index}')
+        ax.set_title(f'{ax.subject_name} @ plane:{ax.index} with {ax.mask_name}')
 
 
 if __name__ == '__main__':
+    '''
+    python admm_research/postprocessing/Viewer.py --img_source=admm_research/dataset/ACDC-2D-All/val/Img --gt_folders admm_research/dataset/ACDC-2D-All/val/GT archives/LV_prior/Livia/fs/iter1000/best/ archives/LV_prior/Livia/gc_size/iter1000/best/ archives/LV_prior/Livia/size/iter1000/best/ --group_pattern='patient\d+_\d+' --crop 70
+
+    '''
+    args = get_parser()
     V = Volume(
-        '../../admm_research/dataset/ACDC-2D-All/val/Img',
-        ['../../admm_research/dataset/ACDC-2D-All/val/GT',
-         '../../archives/ACDC/size/iter1000/best',
-         '../../archives/ACDC/gc_size/iter1000/best',
-         '../../archives/ACDC/fs/iter000/best']
+        args.img_source,
+        args.gt_folders,
+        group_pattern=args.group_pattern,
+        img_extension=args.img_extension,
+        crop=args.crop
     )
 
-    Viewer = Multi_Slice_Viewer(V, shuffle_subject=True, n_subject=3)
+    Viewer = Multi_Slice_Viewer(V, shuffle_subject=args.shuffle, n_subject=args.n_subject)
     Viewer.show()

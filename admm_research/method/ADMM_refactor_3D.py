@@ -15,6 +15,7 @@ from admm_research.utils import pred2segmentation
 from .ADMM_refactor import AdmmGCSize
 from ..dataset.metainfoGenerator import IndividualBoundGenerator
 from ..scheduler import customized_scheduler
+from admm_research.postprocessing._viewer import multi_slice_viewer
 
 
 def image_histogram_equalization(image, number_bins=256):
