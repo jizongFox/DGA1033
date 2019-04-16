@@ -1,99 +1,135 @@
 import argparse
-import os
 import random
-import subprocess
-import sys
 import string
-import logging
+from pprint import pprint
+from typing import *
 
-LOGGER = logging.getLogger('random_hparam')
-LOGGER.setLevel(logging.INFO)
-LOGGER.handlers = [logging.StreamHandler(stream=sys.stdout)]
+import numpy as np
+import pandas as pd
+import yaml
+from pathlib2 import Path
 
-FIX_HP = {
-    'nb_ings': 4, 'nb_props': 4, 'effect_ratio': 0,
-    'max_formula_ing': 4, 'max_select': 2, 'seller_range': 0,
-    'alchem_nb_knowledge': 5, 'num_steps': 1500,
-    'seller': 'simple_seq2seq', 'alchem': 'simple_seq2seq',
-    'batch_size': 16, 'gamma': 0.9
+from admm_research.utils import dict_merge, string_parser_
+
+RUN_HP_RANGES = {
+    'Arch.name': 'dummy',
+    'ADMM_Method.ADMMLoopNum': {1, 2},
+    'ADMM_Method.OptimInnerLoopNum': {1, 2},
+    'ADMM_Method.balance_scheduler_dict.begin_epoch': {0, 20},
+    'ADMM_Method.balance_scheduler_dict.max_value': [0.5, 0.75],
+    'Optim.lr': {0.0001, 0.0005, 0.001, 0.002}
 }
 
-HP_RANGES = {
-    'reward_fn': ['better_best_init', 'better_last_accept', 'better_last_best'],
-    'alchem_lr': (0.0003, 0.0003),
-    'seller_lr': 'alchem_lr',
-    'alchem_v_coeff': (0.1, 0.2),
-    'seller_v_coeff': 'alchem_v_coeff',
-    'alchem_ent_coeff': [0.001, 0.002, 0.003, 0.004, 0.005],
-    'seller_ent_coeff': 'alchem_ent_coeff',
+GC_HP_RANGES = {
+    'Arch.name': 'dummy',
+    'ADMM_Method.ADMMLoopNum': {1},
+    'ADMM_Method.OptimInnerLoopNum': {0},
+    'ADMM_Method.lamda': {0, 10, 10, 100, 0.1},
+    'ADMM_Method.sigma': {0.00001, 0.0001, 0.001, 0.01},
+    'ADMM_Method.kernel_size': {3, 5, 7},
+    'Optim.lr': {0},
+    'Trainer.max_epoch': {1}
 }
 
 
-def generate_next_hparam(hparam_ranges):
-    """ From the dictionary generate next hyparameter and save_dir """
-    hparams = dict()
-    while len(hparams) < len(hparam_ranges):
-        for key, range in hparam_ranges.items():
-            if key in hparams:
-                continue
+def generate_next_hparam(hp_range, sample_time=100) -> Generator:
 
-            if isinstance(range, list):
-                hparams[key] = random.choice(range)
-            elif isinstance(range, tuple):
-                low, high = range[0], range[1]
-                hparams[key] = random.uniform(low, high)
-            elif isinstance(range, str):
-                value = hparams.get(range, None)
-                if value:
-                    hparams[key] = value
-    return hparams
+    def sequential_choose(one_parameter_dict: dict):
+        k = list(one_parameter_dict.keys())[0]
+        v = one_parameter_dict.get(k)
+        assert isinstance(v, (set, tuple))
+        if isinstance(v, set):
+            return {f'{k}': f'{np.random.choice(list(v))}'}
+        elif isinstance(v, tuple):
+            return {f'{k}': f'{np.random.choice(v)}'}
+
+    def random_choose(one_parameter_dict: dict):
+        k = list(one_parameter_dict.keys())[0]
+        v = one_parameter_dict.get(k)
+        assert isinstance(v, list)
+        assert v.__len__() == 2, v.__len__()
+        assert v[0] < v[1], f'{v[0]} should be lower than {v[1]}'
+        return {f'{k}': f'{np.random.uniform(v[0], v[1], 1)[0]}'}
+
+    def choose(one_parameter_dict: dict):
+        k = list(one_parameter_dict.keys())[0]
+        v = one_parameter_dict.get(k)
+
+        assert isinstance(v, (list, tuple, set, str))
+        if isinstance(v, list):
+            return random_choose(one_parameter_dict)
+        elif isinstance(v, (tuple, set)):
+            return sequential_choose(one_parameter_dict)
+        elif isinstance(v, str):
+            return {f'{k}': f'{v}'}
+
+    for _ in range(sample_time):
+        results = {}
+        for k, v in hp_range.items():
+            results = dict_merge(results, choose({k: v}), re=True)
+        yield results
 
 
-def random_id():
-    return ''.join(random.choice(string.ascii_uppercase + string.digits)
-                   for _ in range(8))
+def parse_hyparm(string_dict: Dict[str, Any]) -> dict:
+    assert isinstance(string_dict, dict)
+    result = {}
+    for k, v in string_dict.items():
+        parsed_dict = string_parser_(f'{k}={v}')
+        result = dict_merge(result, parsed_dict, re=True)
+    return result
+
+
+def random_save_dir(exp_path: str) -> dict:
+    return {'Trainer': {'save_dir': exp_path + '/' + ''.join(random.choice(string.ascii_uppercase + string.digits)
+                                                             for _ in range(8))
+                        }
+            }
+
+
+def search(args: argparse.Namespace, HP_RANGES):
+    from main import main as main_function
+    hp_generator = generate_next_hparam(HP_RANGES, sample_time=args.sample_time)
+    save_dir: Path = Path(args.exp_dir)
+    save_dir.mkdir(exist_ok=True, parents=True)
+    search_results = []
+
+    while True:
+        try:
+            hp_config = hp_generator.__next__()
+            hp_config_dict: dict = parse_hyparm(hp_config)
+            save_dir: dict = random_save_dir(args.exp_dir)  # type: ignore
+            merged_dict = dict_merge(dict_merge(BASE_CONFIG, hp_config_dict, re=True), save_dir, True)
+            summary_result, whole_results = main_function(merged_dict)
+            if args.GC:
+                search_results.append(
+                    {**hp_config, **{'save_dir': save_dir['Trainer']['save_dir']},
+                     **{'gc': whole_results.summary()['tra_gc_dice_DSC1'][0]},
+                     **summary_result}
+                )
+            else:
+                search_results.append(
+                    {**hp_config, **save_dir, **summary_result}
+                )
+
+            pd.DataFrame(search_results).to_csv(Path(args.exp_dir) / 'search_result.csv')
+        except StopIteration:
+            break
 
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-exp_dir', required=True, default=None,
+    parser.add_argument('--exp_dir', '-d', required=True, default=None,
                         help='Path to exp')
+    parser.add_argument('--GC', '-g', action='store_true', help="Evaluating GC hyperparamter.")
+    parser.add_argument('--sample_time', '-t', type=int, default=10, help='Sample time, default = 5.')
     return parser.parse_args()
 
 
-def main(args):
-    exp_dir = args.exp_dir
-    if not os.path.exists(exp_dir):
-        os.makedirs(exp_dir)
-    record_file_path = os.path.join(exp_dir, 'record.csv')
-    first_line = None
-    if not os.path.exists(record_file_path):
-        first_line = ['exp_id'] + list(HP_RANGES.keys())
-        first_line = '\t'.join(first_line)
-    file_handler = logging.FileHandler(record_file_path)
-    file_handler.setFormatter("")
-    LOGGER.addHandler(file_handler)
-
-    if first_line is not None:
-        LOGGER.info(first_line)
-
-    base_cmd = ['python', 'aichemist_research/emergent/train.py']
-    while True:
-        hparams = generate_next_hparam(HP_RANGES)
-        exp_name = str(random_id())
-        save_dir = os.path.join(exp_dir, exp_name)
-        cmd = base_cmd + ['-save_dir', save_dir]
-        for key, val in FIX_HP.items():
-            cmd += ['-{}'.format(key), str(val)]
-        for key, val in hparams.items():
-            cmd += ['-{}'.format(key), str(val)]
-        print(' '.join(cmd))
-
-        exp_line = [exp_name] + [str(val) for val in hparams.values()]
-        exp_line = '\t'.join(exp_line)
-        LOGGER.info(exp_line)
-        subprocess.call(cmd, stdout=sys.stdout, stderr=sys.stderr)
-
-
 if __name__ == '__main__':
-    main(get_args())
+    with open('config_3D.yaml', 'r') as stream:
+        BASE_CONFIG = yaml.safe_load(stream)
+    print('->Base configuration:')
+    pprint(BASE_CONFIG)
+    args = get_args()
+    HP_RANGES = GC_HP_RANGES if args.GC else RUN_HP_RANGES
+    search(args, HP_RANGES)

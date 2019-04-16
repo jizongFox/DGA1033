@@ -30,9 +30,9 @@ def main(config: dict):
         whole_config_dict=config,
         **config['Trainer']
     )
-    trainer.start_training()
-    output = trainer.summary()
-    return output
+    whole_results = trainer.start_training()
+    summary_output = trainer.summary()
+    return summary_output, whole_results
 
 
 if __name__ == '__main__':
@@ -54,5 +54,5 @@ if __name__ == '__main__':
 
     print('>>Merged args:')
     pprint(config)
-    best_results = main(config)
+    whole_result, best_results = main(config)
     print(best_results)

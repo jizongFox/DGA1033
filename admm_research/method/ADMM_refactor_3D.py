@@ -15,7 +15,6 @@ from admm_research.utils import pred2segmentation
 from .ADMM_refactor import AdmmGCSize
 from ..dataset.metainfoGenerator import IndividualBoundGenerator
 from ..scheduler import customized_scheduler
-from admm_research.postprocessing._viewer import multi_slice_viewer
 
 
 def image_histogram_equalization(image, number_bins=256):
@@ -40,11 +39,10 @@ class AdmmGCSize3D(AdmmGCSize):
             OptimInnerLoopNum: int = 1,
             ADMMLoopNum: int = 2,
             device: str = 'cpu',
-            lamda=0.5,
-            sigma=0.005,
+            lamda=100,
+            sigma=0.0001,
             kernel_size=5,
             visualization=False,
-            gc_method='method3',
             p_u: float = 10.0,
             p_v: float = 10.0,
             new_eps: float = 0.1,
@@ -55,9 +53,9 @@ class AdmmGCSize3D(AdmmGCSize):
             **kwargs
     ) -> None:
         super().__init__(model, OptimInnerLoopNum, ADMMLoopNum, device, lamda, sigma, kernel_size, visualization,
-                         gc_method, p_v, p_u, *args, **kwargs)
+                         gc_method='method3', p_v=p_v, p_u=p_u, *args, **kwargs)
         self.new_eps = float(new_eps)
-        ## overide the 3D size generator
+        # overide the 3D size generator
         self.threeD_size_generator = IndividualBoundGenerator(eps=self.new_eps)
         self.weight_scheduler: customized_scheduler.Scheduler = getattr(customized_scheduler,
                                                                         weight_scheduler_dict['name'])(
@@ -67,6 +65,10 @@ class AdmmGCSize3D(AdmmGCSize):
             **{k: v for k, v in balance_scheduler_dict.items() if k != "name"})
         self.gc_scheduler: customized_scheduler.Scheduler = getattr(customized_scheduler, gc_scheduler_dict['name'])(
             **{k: v for k, v in gc_scheduler_dict.items() if k != "name"})
+        self.lamda = float(lamda)
+        self.sigma = float(sigma)
+        assert int(kernel_size) % 2 == 1
+        self.kernel_size = int(kernel_size)
 
     def step(self):
         self.weight_scheduler.step()
@@ -152,7 +154,8 @@ class AdmmGCSize3D(AdmmGCSize):
         assert crop_img.shape == priorCrop.shape
         g = maxflow.Graph[float](0, 0)
         nodeids = g.add_grid_nodes(list(priorCrop.shape))
-        g = self._set_boundary_term(g, nodeids, crop_img, lumda=100, sigma=0.0001, kernelsize=5)
+        g = self._set_boundary_term(g, nodeids, crop_img, lumda=self.lamda, sigma=self.sigma,
+                                    kernelsize=self.kernel_size)
 
         crop_probability = F.softmax(self.score, 1)[:, 1].detach().cpu().numpy().squeeze()[
                            int(cropMin[0]):int(cropMax[0] + 1),
@@ -160,14 +163,16 @@ class AdmmGCSize3D(AdmmGCSize):
                            int(cropMin[2]):int(cropMax[2] + 1)
                            ]
 
-        g.add_grid_tedges(nodeids, (-0.5 + (1 - ratio) * priorCrop + ratio * crop_probability + self.u[
-                                                                                                int(cropMin[0]):int(
-                                                                                                    cropMax[0] + 1),
-                                                                                                int(cropMin[1]):int(
-                                                                                                    cropMax[1] + 1),
-                                                                                                int(cropMin[2]):int(
-                                                                                                    cropMax[2] + 1)
-                                                                                                ]),
+        g.add_grid_tedges(nodeids,
+                          (-0.5 + (1 - ratio) * priorCrop + ratio * crop_probability + self.u[
+                                                                                       int(cropMin[0]):int(
+                                                                                           cropMax[0] + 1),
+                                                                                       int(cropMin[1]):int(
+                                                                                           cropMax[1] + 1),
+                                                                                       int(cropMin[2]):int(
+                                                                                           cropMax[2] + 1)
+                                                                                       ]
+                           ),
                           np.zeros_like(priorCrop))
         g.maxflow()
         sgm = g.get_grid_segments(nodeids) * 1

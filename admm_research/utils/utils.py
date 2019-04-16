@@ -333,20 +333,20 @@ def yaml_parser() -> Optional[dict]:
     parser.add_argument('strings', nargs='*', type=str, default=[''])
 
     args: argparse.Namespace = parser.parse_args()
-    args_dict: Optional[dict] = _parser(args.strings)
+    args_dict: Optional[dict] = string_list_parser(args.strings)
     return args_dict
 
 
-def _parser(strings: List[str]) -> Optional[dict]:
+def string_list_parser(strings: List[str]) -> Optional[dict]:
     assert isinstance(strings, list)
     # no doubled augments
     assert set(map_(lambda x: x.split('=')[0], strings)).__len__() == strings.__len__(), 'Augment doubly input.'
-    args: List[Optional[Dict[Any, Any]]] = [_parser_(s) for s in strings]
+    args: List[Optional[Dict[Any, Any]]] = [string_parser_(s) for s in strings]
     reduced_args = reduce(lambda x, y: dict_merge(x, y, True), args)
     return reduced_args
 
 
-def _parser_(input_string: str) -> Optional[dict]:
+def string_parser_(input_string: str) -> Optional[dict]:
     if input_string.__len__() == 0:
         return None
     assert input_string.find('=') > 0, f"Input args should include '=' to include the value"

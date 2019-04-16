@@ -1,16 +1,26 @@
-#coding=utf8
+# coding=utf8
 import torch
 import torch.nn as nn
-import torch.nn.init as init
 import torch.nn.functional as F
 
-from torch.utils import model_zoo
 from torchvision import models
+
+
+class Dummy(nn.Module):
+    def __init__(self, in_dimension: int = 1, num_classes: int = 2, dtype=torch.float32) -> None:
+        super().__init__()
+
+        self.down = nn.Conv2d(in_dimension, 10, kernel_size=2, stride=2)
+        self.up = nn.ConvTranspose2d(10, num_classes, kernel_size=3, stride=2, padding=1, output_padding=1)
+
+    def forward(self, input: torch.Tensor) -> torch.Tensor:
+        return self.up(self.down(input))
+
 
 class FCN8(nn.Module):
 
     def __init__(self, num_classes):
-        super(FCN8,self).__init__()
+        super(FCN8, self).__init__()
 
         feats = list(models.vgg16(pretrained=True).features.children())
 
@@ -57,7 +67,7 @@ class FCN8(nn.Module):
 class FCN16(nn.Module):
 
     def __init__(self, num_classes):
-        super(FCN16,self).__init__()
+        super(FCN16, self).__init__()
 
         feats = list(models.vgg16(pretrained=True).features.children())
         self.feats = nn.Sequential(*feats[0:16])
@@ -92,7 +102,7 @@ class FCN16(nn.Module):
 class FCN32(nn.Module):
 
     def __init__(self, num_classes):
-        super(FCN32,self).__init__()
+        super(FCN32, self).__init__()
 
         self.feats = models.vgg16(pretrained=True).features
         self.fconn = nn.Sequential(
@@ -113,10 +123,10 @@ class FCN32(nn.Module):
         return F.upsample_bilinear(score, x.size()[2:])
 
 
-class UNetEnc(nn.Module): # 从representation到图片
+class UNetEnc(nn.Module):  # 从representation到图片
 
     def __init__(self, in_channels, features, out_channels):
-        super(UNetEnc,self).__init__()
+        super(UNetEnc, self).__init__()
 
         self.up = nn.Sequential(
             nn.Conv2d(in_channels, features, 3),
@@ -131,10 +141,10 @@ class UNetEnc(nn.Module): # 从representation到图片
         return self.up(x)
 
 
-class UNetDec(nn.Module): # 从图片到representation
+class UNetDec(nn.Module):  # 从图片到representation
 
     def __init__(self, in_channels, out_channels, dropout=False):
-        super(UNetDec,self).__init__()
+        super(UNetDec, self).__init__()
 
         layers = [
             nn.Conv2d(in_channels, out_channels, 3),
@@ -155,7 +165,7 @@ class UNetDec(nn.Module): # 从图片到representation
 class UNet(nn.Module):
 
     def __init__(self, num_classes):
-        super(UNet,self).__init__()
+        super(UNet, self).__init__()
 
         self.dec1 = UNetDec(1, 64)
         self.dec2 = UNetDec(64, 128)
@@ -202,7 +212,7 @@ class UNet(nn.Module):
 class SegNetEnc(nn.Module):
 
     def __init__(self, in_channels, out_channels, num_layers):
-        super(SegNetEnc,self).__init__()
+        super(SegNetEnc, self).__init__()
 
         layers = [
             nn.UpsamplingBilinear2d(scale_factor=2),
@@ -211,10 +221,10 @@ class SegNetEnc(nn.Module):
             nn.ReLU(inplace=True),
         ]
         layers += [
-            nn.Conv2d(in_channels // 2, in_channels // 2, 3, padding=1),
-            nn.BatchNorm2d(in_channels // 2),
-            nn.ReLU(inplace=True),
-        ] * num_layers
+                      nn.Conv2d(in_channels // 2, in_channels // 2, 3, padding=1),
+                      nn.BatchNorm2d(in_channels // 2),
+                      nn.ReLU(inplace=True),
+                  ] * num_layers
         layers += [
             nn.Conv2d(in_channels // 2, out_channels, 3, padding=1),
             nn.BatchNorm2d(out_channels),
@@ -225,11 +235,12 @@ class SegNetEnc(nn.Module):
     def forward(self, x):
         return self.encode(x)
 
+
 # this is not the right implementation of using index of maxpooling
 class SegNet(nn.Module):
 
     def __init__(self, num_classes):
-        super(SegNet,self).__init__()
+        super(SegNet, self).__init__()
 
         # should be vgg16bn but at the moment we have no pretrained bn models
         decoders = list(models.vgg16(pretrained=True).features.children())
@@ -276,7 +287,7 @@ class SegNet(nn.Module):
 class PSPDec(nn.Module):
 
     def __init__(self, in_features, out_features, downsize, upsize=60):
-        super(PSPDec,self).__init__()
+        super(PSPDec, self).__init__()
 
         self.features = nn.Sequential(
             nn.AvgPool2d(downsize, stride=downsize),
@@ -293,7 +304,7 @@ class PSPDec(nn.Module):
 class PSPNet(nn.Module):
 
     def __init__(self, num_classes):
-        super(PSPNet,self).__init__()
+        super(PSPNet, self).__init__()
 
         '''
         self.conv1 = nn.Sequential(

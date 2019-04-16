@@ -1,10 +1,11 @@
 """ Define the architecture. Modified from torchvision
 """
-from .network import FCN8, FCN16, FCN32, UNet, SegNet, PSPNet
-from .enet import Enet
-from .joseent import ENet as JEnet
-from .joseent import CorstemNet as CNet
 from torch import nn
+
+from .enet import Enet
+from .joseent import CorstemNet as CNet
+from .joseent import ENet as JEnet
+from .network import FCN8, FCN16, FCN32, UNet, SegNet, PSPNet, Dummy
 
 """
 Package
@@ -40,17 +41,19 @@ _register_arch('segnet', SegNet)
 _register_arch('enet', Enet)
 _register_arch('jenet', JEnet)
 _register_arch('cnet', CNet)
+_register_arch('dummy', Dummy)
 
 """
 Public interface
 """
+
+
 def weights_init(m):
     if type(m) == nn.Conv2d or type(m) == nn.ConvTranspose2d:
         nn.init.xavier_normal_(m.weight.data)
     elif type(m) == nn.BatchNorm2d:
         m.weight.data.normal_(1.0, 0.02)
         m.bias.data.fill_(0)
-
 
 
 def get_arch(arch, kwargs):

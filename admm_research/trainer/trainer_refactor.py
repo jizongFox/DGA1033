@@ -124,6 +124,7 @@ class ADMM_Trainer(Base):
             wholeMeter.summary().to_csv(Path(self.save_dir, f'wholeMeter.csv'))
             self.schedulerstep()
             self.save_checkpoint(dice=val_3d_dice.get('DSC1'), epoch=epoch, meters=wholeMeter)
+        return wholeMeter
 
     def summary(self):
         from summary import main as summary_main

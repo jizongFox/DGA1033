@@ -27,8 +27,8 @@ Scheduler:
 
 ADMM_Method:
   name: gc_size_3d
-  OptimInnerLoopNum: 4
-  ADMMLoopNum: 2
+  OptimInnerLoopNum: 1
+  ADMMLoopNum: 1
   device: cuda
   visualization: False
   new_eps: 0.1
@@ -36,25 +36,25 @@ ADMM_Method:
   p_v: 10.0
   weight_scheduler_dict:
     name:  RampScheduler
-    begin_epoch: 0
+    begin_epoch: 1
     max_epoch: 300
     max_value: 10
   balance_scheduler_dict:
     name:  RampScheduler
-    begin_epoch: 20
+    begin_epoch: 5
     max_epoch: 300
     max_value: 0.8
 
   gc_scheduler_dict:
     name:  RampScheduler
-    begin_epoch: 20
+    begin_epoch: 8
     max_epoch: 300
     max_value: 0.5
 
 
 Trainer:
   save_dir: runs/prostate
-  max_epoch: 250
+  max_epoch: 10
   use_tqdm: True
 #  checkpoint: archives/PROSTATE_gt_oracle/gc_size
 
