@@ -52,7 +52,7 @@ class Volume(object):
         self.mask_folder_list = [Path(m) for m in mask_folder_list]
         self.num_mask = len(self.mask_folder_list)
         for m in self.mask_folder_list:
-            assert m.exists()
+            assert m.exists(), m
         self.group_pattern: str = group_pattern
         self.img_extension = img_extension
         self.img_paths, self.mask_paths_dict = self._load_images(self.img_folder, self.mask_folder_list,
