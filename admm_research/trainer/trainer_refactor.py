@@ -126,14 +126,21 @@ class ADMM_Trainer(Base):
             self.save_checkpoint(dice=val_3d_dice.get('DSC1'), epoch=epoch, meters=wholeMeter)
 
     def summary(self):
-        from subprocess import Popen, PIPE
-        from summary import RESULT_FLAG
-        proc = Popen(f'python summary.py --folder={self.save_dir}', shell=True, stdout=PIPE, stderr=PIPE)
-        out, err = proc.communicate()
-        proc.wait()
-        return  out.decode('utf-8')[out.decode('utf-8').find(RESULT_FLAG)+len(RESULT_FLAG):]
+        from summary import main as summary_main
+        import argparse
+        # proc = Popen(f'python summary.py --folder={self.save_dir}', shell=True, stdout=PIPE, stderr=PIPE)
+        # out, err = proc.communicate()
+        # proc.wait()
+        # return  out.decode('utf-8')[out.decode('utf-8').find(RESULT_FLAG)+len(RESULT_FLAG):]
+        results = summary_main(
+            args=argparse.Namespace(**{'folder': self.save_dir,
+                                       'checkpoint_name': 'best.pth',
+                                       'use_cpu': False}
+                                    )
+        )
+        return results
 
-    def _main_loop(self, dataloader, epoch, mode, *args, **kwargs):
+    def _main_loop(self, dataloader: DataLoader, epoch: int, mode: ModelMode, *args, **kwargs):
         dataloader.dataset.set_mode(mode)
         self.admm.set_mode(mode)
         assert self.admm.model.training == True
@@ -151,22 +158,23 @@ class ADMM_Trainer(Base):
             train_dice.add(self.admm.score, gt)
             try:
                 gc_dice.add(class2one_hot(torch.from_numpy(self.admm.gamma), C=2).float().to(self.device), gt)
-            except:
+            except AttributeError:
                 pass
             try:
                 size_dice.add(class2one_hot(self.admm.s.float(), C=2).float().to(self.device), gt)
-            except:
+            except AttributeError:
                 pass
             if self.use_tqdm:
                 report_dict = flatten_dict(
                     {'tra': train_dice.detailed_summary(), 'gc': gc_dice.summary(), 'sz': size_dice.summary()})
                 dataloader_.set_postfix({k: v for k, v in report_dict.items() if v > 1e-6})
         if self.use_tqdm:
+            report_dict: dict
             string_dict = f', '.join([f"{k}:{v:.3f}" for k, v in report_dict.items()])
             print(f'Training   epoch: {epoch} -> {string_dict}')
         return train_dice.summary(), gc_dice.summary(), size_dice.summary()
 
-    def _eval_loop(self, val_dataloader, epoch, mode=ModelMode.EVAL):
+    def _eval_loop(self, val_dataloader: DataLoader, epoch: int, mode: ModelMode = ModelMode.EVAL):
         val_dataloader.dataset.set_mode(mode)
         self.admm.set_mode(mode)
         assert self.admm.model.training == False

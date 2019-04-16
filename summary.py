@@ -15,7 +15,7 @@ from admm_research.models import Segmentator
 from admm_research.utils import flatten_dict
 from admm_research.utils import save_images
 
-RESULT_FLAG="Final Results"
+RESULT_FLAG = "Final Results"
 
 
 def get_parser() -> argparse.Namespace:
@@ -56,7 +56,7 @@ def read_config(config_path: Union[Path, str] = '') -> dict:
     return config
 
 
-def main(args: argparse.Namespace) -> None:
+def main(args: argparse.Namespace) -> dict:
     filepath: Path = Path(args.folder)
     assert filepath.exists()
     assert len(list(filepath.glob('*.yaml'))) == 1, f'The yaml config file should be unique, ' \
@@ -84,7 +84,7 @@ def main(args: argparse.Namespace) -> None:
     print(f'2d DSC: {results}')
     results: str = ','.join([f'{k}:{v:.3f}' for k, v in bdice.items()])  # type:ignore
     print(f'3d DSC: {results}')
-    print(f'{RESULT_FLAG}{results}')
+    return bdice
 
 
 def evaluate_loop(model: Segmentator, val_loader: DataLoader, args: argparse.Namespace) -> Tuple[
