@@ -173,7 +173,7 @@ class Multi_Slice_Viewer(object):
     def show(self, ):
         fig, axs = plt.subplots(self.n_subject, self.volume.num_mask)
         axs = np.array([axs]) if not isinstance(axs, np.ndarray) else axs
-        self.axs = axs if len(axs.shape) == 2 else axs[None, ...]
+        self.axs = axs if len(axs.shape) == 2 else axs[..., None]
 
         for row in range(self.n_subject):
             img_volume, mask_volumes, subject_name, mask_names = self._preproccess_data(self.volume.__next__())
