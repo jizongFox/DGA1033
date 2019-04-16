@@ -316,7 +316,10 @@ def save_images(segs: Tensor, names: Iterable[str], root: Union[str, Path], mode
 
             save_path.parent.mkdir(parents=True, exist_ok=True)
 
-            imsave(str(save_path), seg.cpu().numpy())
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore')
+
+                imsave(str(save_path), seg.cpu().numpy().astype(np.uint8))
 
 
 # argparser
@@ -325,23 +328,22 @@ from functools import reduce
 from copy import deepcopy as dcopy
 
 
-def yaml_parser() -> dict:
+def yaml_parser() -> Optional[dict]:
     parser = argparse.ArgumentParser('Augment parser for yaml config')
     parser.add_argument('strings', nargs='*', type=str, default=[''])
 
-    args: argparse.Namespace = parser.parse_args()  # type: ignore
-    args_dict: dict = _parser(args.strings)  # type: ignore
-    # pprint(args)
+    args: argparse.Namespace = parser.parse_args()
+    args_dict: Optional[dict] = _parser(args.strings)
     return args_dict
 
 
-def _parser(strings: List[str]) -> List[dict]:
+def _parser(strings: List[str]) -> Optional[dict]:
     assert isinstance(strings, list)
-    ## no doubled augments
+    # no doubled augments
     assert set(map_(lambda x: x.split('=')[0], strings)).__len__() == strings.__len__(), 'Augment doubly input.'
     args: List[Optional[Dict[Any, Any]]] = [_parser_(s) for s in strings]
-    args = reduce(lambda x, y: dict_merge(x, y, True), args)
-    return args
+    reduced_args = reduce(lambda x, y: dict_merge(x, y, True), args)
+    return reduced_args
 
 
 def _parser_(input_string: str) -> Optional[dict]:

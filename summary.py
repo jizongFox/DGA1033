@@ -17,8 +17,11 @@ from admm_research.utils import save_images
 
 
 def get_parser() -> argparse.Namespace:
-    parser: argparse.ArgumentParser = argparse.ArgumentParser(prog='summary', usage='Generate acc/dice etc.',
-                                                              description='This summary.py generate masks and final dice scores.')
+    parser: argparse.ArgumentParser = argparse.ArgumentParser(
+        prog='summary',
+        usage='Generate acc/dice etc.',
+        description='This summary.py generate masks and final dice scores.'
+    )
     parser.add_argument('--folder', type=str, required=True,
                         help='File path containing the best.pth and yaml configuration.')
     parser.add_argument('--checkpoint_name', type=str, default='best.pth',
