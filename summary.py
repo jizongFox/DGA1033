@@ -15,6 +15,8 @@ from admm_research.models import Segmentator
 from admm_research.utils import flatten_dict
 from admm_research.utils import save_images
 
+RESULT_FLAG="Final Results"
+
 
 def get_parser() -> argparse.Namespace:
     parser: argparse.ArgumentParser = argparse.ArgumentParser(prog='summary', usage='Generate acc/dice etc.',
@@ -24,6 +26,7 @@ def get_parser() -> argparse.Namespace:
     parser.add_argument('--checkpoint_name', type=str, default='best.pth',
                         help='Checkpoint name to load in the folder (default: "best.pth").')
     parser.add_argument('--use_cpu', action='store_true', help='Force to use CPU even when cuda is available.')
+    parser.add_argument('--run-by-cmd', action='store_true', help="Disable all display when running within CMD.")
     args: argparse.Namespace = parser.parse_args()
     print(args)
     return args
@@ -78,6 +81,7 @@ def main(args: argparse.Namespace) -> None:
     print(f'2d DSC: {results}')
     results: str = ','.join([f'{k}:{v:.3f}' for k, v in bdice.items()])  # type:ignore
     print(f'3d DSC: {results}')
+    print(f'{RESULT_FLAG}{results}')
 
 
 def evaluate_loop(model: Segmentator, val_loader: DataLoader, args: argparse.Namespace) -> Tuple[
@@ -92,7 +96,6 @@ def evaluate_loop(model: Segmentator, val_loader: DataLoader, args: argparse.Nam
         img, gt = img.to(device), gt.to(device)
         pred = model.predict(img, logit=False)
         save_images(pred.max(1)[1], root=Path(args.folder), mode='best', iter=1000, names=[Path(x).stem for x in path])
-
         dice_Meter.add(pred, gt)
         bdice_Meter.add(pred, gt)
         val_loader_.set_postfix(flatten_dict({'': dice_Meter.summary(), 'b': bdice_Meter.summary()}, sep=''))

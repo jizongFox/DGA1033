@@ -1,19 +1,18 @@
+import os
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-import os
 import torch
 import yaml
+from easydict import EasyDict as edict
 from torch import nn
 from torch.utils.data import DataLoader
-from easydict import EasyDict as edict
 
-from admm_research import LOGGER, config_logger
 from admm_research import ModelMode
+from admm_research import config_logger
 from admm_research.method.ADMM_refactor import AdmmBase
+from admm_research.metrics2 import DiceMeter, AggragatedMeter, ListAggregatedMeter
 from admm_research.utils import tqdm_, flatten_dict, class2one_hot
-from admm_research.metrics2 import DiceMeter, AverageValueMeter, AggragatedMeter, ListAggregatedMeter
-from admm_research.postprocessing._viewer import multi_slice_viewer
 
 
 class Base(ABC):
@@ -126,6 +125,14 @@ class ADMM_Trainer(Base):
             self.schedulerstep()
             self.save_checkpoint(dice=val_3d_dice.get('DSC1'), epoch=epoch, meters=wholeMeter)
 
+    def summary(self):
+        from subprocess import Popen, PIPE
+        from summary import RESULT_FLAG
+        proc = Popen(f'python summary.py --folder={self.save_dir}', shell=True, stdout=PIPE, stderr=PIPE)
+        out, err = proc.communicate()
+        proc.wait()
+        return  out.decode('utf-8')[out.decode('utf-8').find(RESULT_FLAG)+len(RESULT_FLAG):]
+
     def _main_loop(self, dataloader, epoch, mode, *args, **kwargs):
         dataloader.dataset.set_mode(mode)
         self.admm.set_mode(mode)
@@ -147,13 +154,13 @@ class ADMM_Trainer(Base):
             except:
                 pass
             try:
-                size_dice.add(class2one_hot(self.admm.s.float(),C=2).float().to(self.device), gt)
+                size_dice.add(class2one_hot(self.admm.s.float(), C=2).float().to(self.device), gt)
             except:
                 pass
             if self.use_tqdm:
                 report_dict = flatten_dict(
                     {'tra': train_dice.detailed_summary(), 'gc': gc_dice.summary(), 'sz': size_dice.summary()})
-                dataloader_.set_postfix({k:v for k,v in report_dict.items() if v>1e-6})
+                dataloader_.set_postfix({k: v for k, v in report_dict.items() if v > 1e-6})
         if self.use_tqdm:
             string_dict = f', '.join([f"{k}:{v:.3f}" for k, v in report_dict.items()])
             print(f'Training   epoch: {epoch} -> {string_dict}')
