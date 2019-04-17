@@ -12,12 +12,14 @@ from pathlib2 import Path
 from admm_research.utils import dict_merge, string_parser_
 
 RUN_HP_RANGES = {
-    'Arch.name': 'dummy',
     'ADMM_Method.ADMMLoopNum': {1, 2},
     'ADMM_Method.OptimInnerLoopNum': {1, 2},
     'ADMM_Method.balance_scheduler_dict.begin_epoch': {0, 20},
     'ADMM_Method.balance_scheduler_dict.max_value': [0.5, 0.75],
-    'Optim.lr': {0.0001, 0.0005, 0.001, 0.002}
+    'Optim.lr': {0.0001, 0.0005, 0.001, 0.002},
+    'ADMM_Method.lamda': {100},
+    'ADMM_Method.sigma': { 0.0001},
+    'ADMM_Method.kernel_size': {3},
 }
 
 GC_HP_RANGES = {
