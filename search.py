@@ -18,7 +18,7 @@ RUN_HP_RANGES = {
     'ADMM_Method.balance_scheduler_dict.max_value': [0.5, 0.75],
     'Optim.lr': {0.0001, 0.0005, 0.001, 0.002},
     'ADMM_Method.lamda': {100},
-    'ADMM_Method.sigma': { 0.0001},
+    'ADMM_Method.sigma': {0.0001},
     'ADMM_Method.kernel_size': {3},
 }
 
@@ -33,9 +33,20 @@ GC_HP_RANGES = {
     'Trainer.max_epoch': {1}
 }
 
+ADMM_HP_RANGES = {
+    'ADMM_Method.ADMMLoopNum': {1, 2},
+    'ADMM_Method.OptimInnerLoopNum': {1, 2, 4},
+    'ADMM_Method.lamda': {100},
+    'ADMM_Method.sigma': {0.0001},
+    'ADMM_Method.kernel_size': {3},
+    'Optim.lr': {0.00005, 0.0001, 0.001, },
+    'Trainer.max_epoch': {200},
+    'ADMM_Method.p_v': {0},
+    'Scheduler.step_size': {50}
+}
+
 
 def generate_next_hparam(hp_range, sample_time=100) -> Generator:
-
     def sequential_choose(one_parameter_dict: dict):
         k = list(one_parameter_dict.keys())[0]
         v = one_parameter_dict.get(k)
@@ -102,7 +113,7 @@ def search(args: argparse.Namespace, HP_RANGES):
             save_dir: dict = random_save_dir(args.exp_dir)  # type: ignore
             merged_dict = dict_merge(dict_merge(BASE_CONFIG, hp_config_dict, re=True), save_dir, True)
             summary_result, whole_results = main_function(merged_dict)
-            if args.GC:
+            if args.method == 'gc':
                 search_results.append(
                     {**hp_config, **{'save_dir': save_dir['Trainer']['save_dir']},
                      **{'gc': whole_results.summary()['tra_gc_dice_DSC1'][0]},
@@ -122,7 +133,7 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--exp_dir', '-d', required=True, default=None,
                         help='Path to exp')
-    parser.add_argument('--GC', '-g', action='store_true', help="Evaluating GC hyperparamter.")
+    parser.add_argument('--method', '-m', default='run', type=str, help="Evaluating GC hyperparamter.")
     parser.add_argument('--sample_time', '-t', type=int, default=10, help='Sample time, default = 5.')
     return parser.parse_args()
 
@@ -133,5 +144,12 @@ if __name__ == '__main__':
     print('->Base configuration:')
     pprint(BASE_CONFIG)
     args = get_args()
-    HP_RANGES = GC_HP_RANGES if args.GC else RUN_HP_RANGES
+    if args.method == 'run':
+        HP_RANGES = RUN_HP_RANGES
+    elif args.method == 'gc':
+        HP_RANGES = GC_HP_RANGES
+    elif args.method == 'admm':
+        HP_RANGES = ADMM_HP_RANGES
+    else:
+        raise NotImplementedError(f'{args.method} not implemented.')
     search(args, HP_RANGES)

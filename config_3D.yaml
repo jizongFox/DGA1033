@@ -37,24 +37,24 @@ ADMM_Method:
   weight_scheduler_dict:
     name:  RampScheduler
     begin_epoch: 1
-    max_epoch: 300
+    max_epoch: 100
     max_value: 10
   balance_scheduler_dict:
     name:  RampScheduler
-    begin_epoch: 5
-    max_epoch: 300
+    begin_epoch: 10
+    max_epoch: 100
     max_value: 0.8
 
   gc_scheduler_dict:
     name:  RampScheduler
-    begin_epoch: 8
-    max_epoch: 300
-    max_value: 0.5
+    begin_epoch: 10
+    max_epoch: 50
+    max_value: 0.8
 
 
 Trainer:
   save_dir: runs/prostate
-  max_epoch: 10
+  max_epoch: 250
   use_tqdm: True
 #  checkpoint: archives/PROSTATE_gt_oracle/gc_size
 
