@@ -34,7 +34,7 @@ rm -rf "runs/${save_dir}/soft3d"
 CUDA_VISIBLE_DEVICES=${gpu_num} python main.py  \
 Trainer.save_dir="runs/${save_dir}/soft3d" \
 Dataset.dataset_name=cardiac \
-ADMM_Method.name=fs \
+ADMM_Method.name=soft3d \
 Trainer.max_epoch=${max_epoch} \
 Trainer.use_tqdm=${use_tqdm}
 rm -rf "archives/${save_dir}/soft3d"

@@ -1,10 +1,12 @@
 from typing import *
 
 import torch
+import torch.nn.functional as F
 from torch import nn as nn
-from ..dataset.metainfoGenerator import IndividualBoundGenerator
+
 from admm_research.models import Segmentator
 from .ADMM_refactor import AdmmBase
+from ..dataset.metainfoGenerator import IndividualBoundGenerator
 
 
 class FullySupervisedWrapper(AdmmBase):
@@ -39,7 +41,7 @@ class FullySupervisedWrapper(AdmmBase):
 
 
 class Soft3DConstrainedWrapper(FullySupervisedWrapper):
-    def __init__(self, model: Segmentator, device='cpu', new_eps=0.1,*args, **kwargs) -> None:
+    def __init__(self, model: Segmentator, device='cpu', new_eps=0.1, *args, **kwargs) -> None:
         super().__init__(model, device, *args, **kwargs)
         self.new_eps = new_eps
         self.criterion = nn.CrossEntropyLoss(weight=torch.Tensor([0, 1]), ignore_index=-1).to(self.device)
@@ -66,13 +68,13 @@ class Soft3DConstrainedWrapper(FullySupervisedWrapper):
         self.model.optimizer.zero_grad()
         pred = self.model.predict(self.img, logit=True)
         partialCELoss = self.criterion(pred, self.ce_prior)
-        softFGsize = pred[:, 1].sum()
+        softFGsize = F.softmax(pred[:, 1], 1).sum()
         if self.lowbound <= softFGsize <= self.highbound:
             sizeLoss = 0
         elif softFGsize > self.highbound:
-            sizeLoss = (softFGsize - self.highbound) ** 2 / (pred.view(0,-1).size(0)/2)
+            sizeLoss = (softFGsize - self.highbound) ** 2 / (pred.view(-1).size(0) / 2)
         elif softFGsize < self.lowbound:
-            sizeLoss = (softFGsize - self.lowbound) ** 2 / (pred.view(-1).size(0)/2)
+            sizeLoss = (softFGsize - self.lowbound) ** 2 / (pred.view(-1).size(0) / 2)
         else:
             raise ValueError
 
