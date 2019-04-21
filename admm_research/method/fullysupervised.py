@@ -3,10 +3,12 @@ from typing import *
 import torch
 import torch.nn.functional as F
 from torch import nn as nn
-
+import matplotlib.pyplot as plt
 from admm_research.models import Segmentator
 from .ADMM_refactor import AdmmBase
 from ..dataset.metainfoGenerator import IndividualBoundGenerator
+from ..metrics2 import AverageValueMeter
+from ..utils import pred2segmentation
 
 
 class FullySupervisedWrapper(AdmmBase):
@@ -46,6 +48,8 @@ class Soft3DConstrainedWrapper(FullySupervisedWrapper):
         self.new_eps = new_eps
         self.criterion = nn.CrossEntropyLoss(weight=torch.Tensor([0, 1]), ignore_index=-1).to(self.device)
         self.threeD_size_generator = IndividualBoundGenerator(eps=self.new_eps)
+        self.ce_loss_Meter = AverageValueMeter()
+        self.size_Meter = AverageValueMeter()
 
     def set_input(self, img: torch.Tensor, gt: torch.Tensor, weak_gt: torch.Tensor, bounds: torch.Tensor,
                   paths: Tuple[str] = None, *args, **kwargs):
@@ -65,19 +69,62 @@ class Soft3DConstrainedWrapper(FullySupervisedWrapper):
         self.highbound: torch.Tensor = bounds[1, 1].to(self.device).float()
 
     def update(self, *args, **kwargs):
+
         self.model.optimizer.zero_grad()
-        pred = self.model.predict(self.img, logit=True)
-        partialCELoss = self.criterion(pred, self.ce_prior)
-        softFGsize = F.softmax(pred[:, 1], 1).sum()
+        partialCELoss = self.criterion(self.score, self.ce_prior)
+        self.softpred = F.softmax(self.score, 1)[:, 1]
+        softFGsize = self.softpred.sum()
         if self.lowbound <= softFGsize <= self.highbound:
-            sizeLoss = 0
+            sizeLoss = torch.tensor(0)
         elif softFGsize > self.highbound:
-            sizeLoss = (softFGsize - self.highbound) ** 2 / (pred.view(-1).size(0) / 2)
+            sizeLoss = (softFGsize - self.highbound) ** 2 / float((self.score.view(-1).size(0)))
         elif softFGsize < self.lowbound:
-            sizeLoss = (softFGsize - self.lowbound) ** 2 / (pred.view(-1).size(0) / 2)
+            sizeLoss = (softFGsize - self.lowbound) ** 2 /  float((self.score.view(-1).size(0)))
         else:
             raise ValueError
 
-        loss = partialCELoss + sizeLoss
+        loss = partialCELoss + 0.01* sizeLoss
         loss.backward()
         self.model.optimizer.step()
+        self.size_Meter.add(sizeLoss.item())
+        self.ce_loss_Meter.add(partialCELoss.item())
+
+        if self.visualization:
+            self.show('ce_prior', fig_num=1)
+
+        # plt.figure(3)
+        # plt.clf()
+        # plt.imshow(self.img[int(self.img.shape[0] / 2)].cpu().data.numpy().squeeze(), cmap='gray')
+        # plt.imshow(self.softpred[int(self.img.shape[0] / 2)].cpu().data.numpy().squeeze(), alpha=0.5)
+        # plt.colorbar()
+        # plt.show(block=False)
+        # plt.pause(0.01)
+        # print(f'size loss:{sizeLoss.item()}, CE_loss:{partialCELoss.item()}, mean_FG:{self.softpred.mean()}')
+
+    def show(self, name=None, fig_num=1):
+        try:
+            getattr(self, name)
+        except Exception as e:
+            return
+        plt.figure(fig_num, figsize=(5, 5))
+        plt.clf()
+        plt.subplot(1, 1, 1)
+        plt.imshow(self.img[int(self.img.shape[0] / 2)].cpu().data.numpy().squeeze(), cmap='gray')
+
+        plt.contour(self.gt[int(self.img.shape[0] / 2)].squeeze().cpu().data.numpy(), level=[0], colors="yellow",
+                    alpha=0.2, linewidth=0.001,
+                    label='GT')
+        if name is not None and name != 'img':
+            try:
+                plt.contour(getattr(self, name)[int(self.img.shape[0] / 2)].detach().cpu(), level=[0], colors="red",
+                            alpha=0.2, linewidth=0.001,
+                            label=name)
+            except AttributeError:
+                plt.contour(getattr(self, name)[int(self.img.shape[0] / 2)], level=[0], colors="red", alpha=0.2,
+                            linewidth=0.001,
+                            label=name)
+        plt.contour(pred2segmentation(self.score)[int(self.img.shape[0] / 2)].squeeze().cpu().data.numpy(), level=[0],
+                    colors="green", alpha=0.2, linewidth=0.001, label='CNN')
+        plt.title(name)
+        plt.show(block=False)
+        plt.pause(0.01)

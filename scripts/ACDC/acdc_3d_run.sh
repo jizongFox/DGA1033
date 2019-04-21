@@ -5,7 +5,7 @@ max_epoch=250
 choosen_class=LV
 subfolder="${choosen_class}_prior/finalytry"
 save_dir=$subfolder
-use_tqdm=False
+use_tqdm=True
 set -e
 
 echo 'Parameters:'
@@ -33,9 +33,12 @@ run_soft(){
 rm -rf "runs/${save_dir}/soft3d"
 CUDA_VISIBLE_DEVICES=${gpu_num} python main.py  \
 Trainer.save_dir="runs/${save_dir}/soft3d" \
+Optim.lr=0.0005 \
 Dataset.dataset_name=cardiac \
 ADMM_Method.name=soft3d \
-Trainer.max_epoch=${max_epoch} \
+Trainer.max_epoch=1000 \
+Scheduler.step_size=100 \
+Scheduler.gamma=0.5 \
 Trainer.use_tqdm=${use_tqdm}
 rm -rf "archives/${save_dir}/soft3d"
 mv -f "runs/${save_dir}/soft3d" "archives/${save_dir}"

@@ -169,6 +169,10 @@ class ADMM_Trainer(Base):
                 report_dict = flatten_dict(
                     {'tra': train_dice.detailed_summary(), 'gc': gc_dice.summary(), 'sz': size_dice.summary()})
                 dataloader_.set_postfix({k: v for k, v in report_dict.items() if v > 1e-6})
+        try:
+            print(f'CE_loss:{self.admm.ce_loss_Meter.value()[0]}, size_loss:{self.admm.size_Meter.value()[0]}')
+        except:
+            pass
         if self.use_tqdm:
             report_dict: dict
             string_dict = f', '.join([f"{k}:{v:.3f}" for k, v in report_dict.items()])
