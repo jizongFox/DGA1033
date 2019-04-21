@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 gpu_num=$1
 commend=$2
-max_epoch=500
+max_epoch=250
 choosen_class=LV
-subfolder="${choosen_class}_prior"
+subfolder="${choosen_class}_prior/finalytry"
 save_dir=$subfolder
-use_tqdm=True
+use_tqdm=False
 set -e
 
 echo 'Parameters:'
@@ -28,6 +28,19 @@ Trainer.use_tqdm=${use_tqdm}
 rm -rf "archives/${save_dir}/fs"
 mv -f "runs/${save_dir}/fs" "archives/${save_dir}"
 }
+
+run_soft(){
+rm -rf "runs/${save_dir}/soft3d"
+CUDA_VISIBLE_DEVICES=${gpu_num} python main.py  \
+Trainer.save_dir="runs/${save_dir}/soft3d" \
+Dataset.dataset_name=cardiac \
+ADMM_Method.name=fs \
+Trainer.max_epoch=${max_epoch} \
+Trainer.use_tqdm=${use_tqdm}
+rm -rf "archives/${save_dir}/soft3d"
+mv -f "runs/${save_dir}/soft3d" "archives/${save_dir}"
+}
+
 ## size
 run_size(){
 rm -rf "runs/${save_dir}/size"
@@ -42,15 +55,15 @@ mv -f "runs/${save_dir}/size" "archives/${save_dir}"
 }
 
 run_gc(){
-rm -rf "runs/${save_dir}/size"
+rm -rf "runs/${save_dir}/gc"
 CUDA_VISIBLE_DEVICES=${gpu_num} python main.py  \
 Trainer.save_dir="runs/${save_dir}/gc" \
 Dataset.dataset_name=cardiac \
 Trainer.max_epoch=${max_epoch} \
 Trainer.use_tqdm=${use_tqdm} \
 ADMM_Method.p_v=0
-rm -rf "archives/${save_dir}/size"
-mv -f "runs/${save_dir}/size" "archives/${save_dir}"
+rm -rf "archives/${save_dir}/gc"
+mv -f "runs/${save_dir}/gc" "archives/${save_dir}"
 }
 # GC_size
 run_gc_size(){

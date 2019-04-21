@@ -1,6 +1,6 @@
 from .ADMM_refactor import AdmmSize, AdmmGCSize
-from .fullysupervised import FullySupervisedWrapper
 from .ADMM_refactor_3D import AdmmGCSize3D
+from .fullysupervised import FullySupervisedWrapper, Soft3DConstrainedWrapper
 
 """
 Package
@@ -32,6 +32,7 @@ _register_arch('size', AdmmSize)
 _register_arch('gc_size', AdmmGCSize)
 _register_arch('gc_size_3d', AdmmGCSize3D)
 _register_arch('fs', FullySupervisedWrapper)
+_register_arch('soft3d', Soft3DConstrainedWrapper)
 
 """
 Public interface
@@ -48,5 +49,5 @@ Public interface
 def get_method_class(method_, ):
     """ Get the architecture. Return a torch.nn.Module """
     arch_callable = ARCH_CALLABLES.get(method_)
-    assert arch_callable, "Architecture {} is not found!".format(method_)
+    assert arch_callable, "Architecture {} is not found!, only support {}".format(method_, ARCH_CALLABLES.keys())
     return arch_callable
