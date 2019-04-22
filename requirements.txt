@@ -9,3 +9,5 @@ tensorboard
 tensorboardX
 pymaxflow
 torchnet
+pathlib2
+pyyaml

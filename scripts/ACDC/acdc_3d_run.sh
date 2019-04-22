@@ -22,6 +22,8 @@ rm -rf "runs/${save_dir}/fs"
 CUDA_VISIBLE_DEVICES=${gpu_num} python main.py  \
 Trainer.save_dir="runs/${save_dir}/fs" \
 Dataset.dataset_name=cardiac \
+Dataset.choosen_class=$choosen_class \
+Dataset.subfolder=$subfolder \
 ADMM_Method.name=fs \
 Trainer.max_epoch=${max_epoch} \
 Trainer.use_tqdm=${use_tqdm}
@@ -35,6 +37,8 @@ CUDA_VISIBLE_DEVICES=${gpu_num} python main.py  \
 Trainer.save_dir="runs/${save_dir}/soft3d" \
 Optim.lr=0.0005 \
 Dataset.dataset_name=cardiac \
+Dataset.choosen_class=$choosen_class \
+Dataset.subfolder=$subfolder \
 ADMM_Method.name=soft3d \
 Trainer.max_epoch=${max_epoch} \
 Trainer.use_tqdm=${use_tqdm}
@@ -48,6 +52,8 @@ rm -rf "runs/${save_dir}/size"
 CUDA_VISIBLE_DEVICES=${gpu_num} python main.py  \
 Trainer.save_dir="runs/${save_dir}/size" \
 Dataset.dataset_name=cardiac \
+Dataset.choosen_class=$choosen_class \
+Dataset.subfolder=$subfolder \
 Trainer.max_epoch=${max_epoch} \
 Trainer.use_tqdm=${use_tqdm} \
 ADMM_Method.p_u=0
@@ -60,6 +66,8 @@ rm -rf "runs/${save_dir}/gc"
 CUDA_VISIBLE_DEVICES=${gpu_num} python main.py  \
 Trainer.save_dir="runs/${save_dir}/gc" \
 Dataset.dataset_name=cardiac \
+Dataset.choosen_class=$choosen_class \
+Dataset.subfolder=$subfolder \
 Trainer.max_epoch=${max_epoch} \
 Trainer.use_tqdm=${use_tqdm} \
 ADMM_Method.p_v=0
@@ -72,6 +80,8 @@ rm -rf "runs/${save_dir}/gc_size"
 CUDA_VISIBLE_DEVICES=${gpu_num} python main.py  \
 Trainer.save_dir="runs/${save_dir}/gc_size" \
 Dataset.dataset_name=cardiac \
+Dataset.choosen_class=$choosen_class \
+Dataset.subfolder=$subfolder \
 Trainer.max_epoch=${max_epoch} \
 Trainer.use_tqdm=${use_tqdm}
 rm -rf "archives/${save_dir}/gc_size"
