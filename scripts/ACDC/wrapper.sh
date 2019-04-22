@@ -17,8 +17,8 @@ wrapper(){
      --mail-type=ALL   \
      acdc_3d_run.sh 0 $commend
 }
-wrapper run_size 72
 wrapper run_fs 24
 wrapper run_soft 24
-wrapper run_gc 72
-wrapper run_gc_size 72
+wrapper run_size 36
+wrapper run_gc 36
+wrapper run_gc_size 56

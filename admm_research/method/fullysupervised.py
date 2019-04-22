@@ -1,9 +1,10 @@
 from typing import *
 
+import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
 from torch import nn as nn
-import matplotlib.pyplot as plt
+
 from admm_research.models import Segmentator
 from .ADMM_refactor import AdmmBase
 from ..dataset.metainfoGenerator import IndividualBoundGenerator
@@ -19,7 +20,7 @@ class FullySupervisedWrapper(AdmmBase):
         self.criterion = nn.CrossEntropyLoss()
         print(f'loss used here is {self.criterion}')
 
-    def set_input(self, img, gt, weak_gt, bounds, *args, **kwargs):
+    def set_input(self, img, gt, weak_gt, bounds=None, *args, **kwargs):
         self.img: torch.Tensor = img.to(self.device)
         _, _, _, _ = self.img.shape
         self.gt: torch.Tensor = gt.to(self.device)
@@ -79,11 +80,11 @@ class Soft3DConstrainedWrapper(FullySupervisedWrapper):
         elif softFGsize > self.highbound:
             sizeLoss = (softFGsize - self.highbound) ** 2 / float((self.score.view(-1).size(0)))
         elif softFGsize < self.lowbound:
-            sizeLoss = (softFGsize - self.lowbound) ** 2 /  float((self.score.view(-1).size(0)))
+            sizeLoss = (softFGsize - self.lowbound) ** 2 / float((self.score.view(-1).size(0)))
         else:
             raise ValueError
 
-        loss = partialCELoss + 0.01* sizeLoss
+        loss = partialCELoss + 0.01 * sizeLoss
         loss.backward()
         self.model.optimizer.step()
         self.size_Meter.add(sizeLoss.item())
