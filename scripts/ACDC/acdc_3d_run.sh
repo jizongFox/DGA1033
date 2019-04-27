@@ -3,9 +3,10 @@ gpu_num=$1
 commend=$2
 max_epoch=300
 choosen_class=RV
+gc_use_prior=True
 subfolder="${choosen_class}_prior/"
-save_dir=$subfolder
-use_tqdm=True
+save_dir="${subfolder}_use_gc_prior_${gc_use_prior}"
+use_tqdm=False
 set -e
 
 echo 'Parameters:'
@@ -25,6 +26,7 @@ Dataset.dataset_name=cardiac \
 Dataset.choosen_class=$choosen_class \
 Dataset.subfolder=$subfolder \
 ADMM_Method.name=fs \
+ADMM_Method.gc_use_prior=$gc_use_prior \
 Trainer.max_epoch=${max_epoch} \
 Trainer.use_tqdm=${use_tqdm}
 rm -rf "archives/${save_dir}/fs"
@@ -40,6 +42,7 @@ Dataset.dataset_name=cardiac \
 Dataset.choosen_class=$choosen_class \
 Dataset.subfolder=$subfolder \
 ADMM_Method.name=soft3d \
+ADMM_Method.gc_use_prior=$gc_use_prior \
 Trainer.max_epoch=${max_epoch} \
 Trainer.use_tqdm=${use_tqdm}
 rm -rf "archives/${save_dir}/soft3d"
@@ -56,7 +59,8 @@ Dataset.choosen_class=$choosen_class \
 Dataset.subfolder=$subfolder \
 Trainer.max_epoch=${max_epoch} \
 Trainer.use_tqdm=${use_tqdm} \
-ADMM_Method.p_u=0
+ADMM_Method.p_u=0 \
+ADMM_Method.gc_use_prior=$gc_use_prior
 rm -rf "archives/${save_dir}/size"
 mv -f "runs/${save_dir}/size" "archives/${save_dir}"
 }
@@ -70,7 +74,8 @@ Dataset.choosen_class=$choosen_class \
 Dataset.subfolder=$subfolder \
 Trainer.max_epoch=${max_epoch} \
 Trainer.use_tqdm=${use_tqdm} \
-ADMM_Method.p_v=0
+ADMM_Method.p_v=0 \
+ADMM_Method.gc_use_prior=$gc_use_prior
 rm -rf "archives/${save_dir}/gc"
 mv -f "runs/${save_dir}/gc" "archives/${save_dir}"
 }
@@ -83,7 +88,8 @@ Dataset.dataset_name=cardiac \
 Dataset.choosen_class=$choosen_class \
 Dataset.subfolder=$subfolder \
 Trainer.max_epoch=${max_epoch} \
-Trainer.use_tqdm=${use_tqdm}
+Trainer.use_tqdm=${use_tqdm} \
+ADMM_Method.gc_use_prior=$gc_use_prior
 rm -rf "archives/${save_dir}/gc_size"
 mv -f "runs/${save_dir}/gc_size" "archives/${save_dir}"
 }

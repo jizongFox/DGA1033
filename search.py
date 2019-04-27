@@ -29,6 +29,7 @@ GC_HP_RANGES = {
     'ADMM_Method.lamda': {0, 10, 10, 100, 0.1},
     'ADMM_Method.sigma': {0.00001, 0.0001, 0.001, 0.01},
     'ADMM_Method.kernel_size': {3, 5, 7},
+    'ADMM_Method.gc_use_prior': {True, False},
     'Optim.lr': {0},
     'Trainer.max_epoch': {1}
 }
