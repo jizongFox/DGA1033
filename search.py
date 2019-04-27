@@ -37,8 +37,6 @@ GC_HP_RANGES = {
 ADMM_HP_RANGES = {
     'ADMM_Method.ADMMLoopNum': {1, 2},
     'ADMM_Method.OptimInnerLoopNum': {1, 2, 4},
-    'ADMM_Method.lamda': {100},
-    'ADMM_Method.sigma': {0.0001},
     'ADMM_Method.kernel_size': {3},
     'Optim.lr': {0.00005, 0.0001, 0.001, },
     'Trainer.max_epoch': {200},
@@ -100,7 +98,7 @@ def random_save_dir(exp_path: str) -> dict:
             }
 
 
-def search(args: argparse.Namespace, HP_RANGES):
+def search(args: argparse.Namespace, HP_RANGES:dict)->None:
     from main import main as main_function
     hp_generator = generate_next_hparam(HP_RANGES, sample_time=args.sample_time)
     save_dir: Path = Path(args.exp_dir)
@@ -156,4 +154,4 @@ if __name__ == '__main__':
     search(args, HP_RANGES)
 
 # for GC_search with RV,
-# `python search --method=gc -t=40 -d runs/RV_prior/GC_search`
+# `python search.py --method=gc -t=40 -d runs/RV_prior/GC_search`

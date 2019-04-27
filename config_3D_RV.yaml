@@ -28,9 +28,11 @@ Scheduler:
 ADMM_Method:
   name: gc_size_3d
   fg_threshold: 0.95
-  gc_use_prior: True
+  gc_use_prior: False
   OptimInnerLoopNum: 1
   ADMMLoopNum: 1
+  lamda: 10
+  sigma: 0.0001 # gc baseline 68.20%
   device: cuda
   visualization: False
   new_eps: 0.1
