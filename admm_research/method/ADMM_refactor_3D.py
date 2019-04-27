@@ -50,6 +50,7 @@ class AdmmGCSize3D(AdmmGCSize):
             balance_scheduler_dict: dict = {},
             gc_scheduler_dict: dict = {},
             fg_threshold: float = 1,
+            gc_use_prior=True,
             *args,
             **kwargs
     ) -> None:
@@ -71,6 +72,7 @@ class AdmmGCSize3D(AdmmGCSize):
         assert int(kernel_size) % 2 == 1
         self.kernel_size = int(kernel_size)
         self.fg_threshold = float(fg_threshold)
+        self.gc_use_prior = gc_use_prior
 
     def step(self):
         self.weight_scheduler.step()
@@ -154,7 +156,10 @@ class AdmmGCSize3D(AdmmGCSize):
         priorCrop[priorCrop >= self.fg_threshold] = 1e6
         priorCrop[priorCrop <= 0] = -1e6
 
-        # priorCrop = np.moveaxis(priorCrop, 2, 0)
+        if not self.gc_use_prior:
+            priorCrop[(priorCrop >= 0) & (priorCrop <= 1)] = 0.5
+
+            # priorCrop = np.moveaxis(priorCrop, 2, 0)
         assert crop_img.shape == priorCrop.shape
         g = maxflow.Graph[float](0, 0)
         nodeids = g.add_grid_nodes(list(priorCrop.shape))
