@@ -1,7 +1,7 @@
 Dataset:
   dataset_name: cardiac
-  choosen_class: LV
-  subfolder: LV_prior
+  choosen_class: RV
+  subfolder: RV_prior
   is_subfolder_mask: False
   metainfoGenerator_dict:
     name: IndividualBoundGenerator
@@ -27,6 +27,7 @@ Scheduler:
 
 ADMM_Method:
   name: gc_size_3d
+  fg_threshold: 0.95
   OptimInnerLoopNum: 1
   ADMMLoopNum: 1
   device: cuda
@@ -53,7 +54,7 @@ ADMM_Method:
 
 
 Trainer:
-  save_dir: runs/prostate
+  save_dir: runs/RV_prior
   max_epoch: 250
   use_tqdm: True
 #  checkpoint: archives/PROSTATE_gt_oracle/gc_size

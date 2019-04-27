@@ -39,7 +39,7 @@ if __name__ == '__main__':
     parser_args = yaml_parser()
     print('->>Input args:')
     pprint(parser_args)
-    with open('config_3D.yaml') as f:
+    with open('config_3D_RV.yaml') as f:
         config = yaml.load(f, )
     config = dict_merge(config, parser_args, True)
 

@@ -1,0 +1,65 @@
+Dataset:
+  dataset_name: cardiac
+  choosen_class: LV
+  subfolder: LV_prior
+  is_subfolder_mask: False
+  metainfoGenerator_dict:
+    name: IndividualBoundGenerator
+    eps: 0.1
+
+Dataloader:
+  num_workers: 1
+  batch_size: 1
+  shuffle: True
+  group_train: True
+
+Arch:
+  name: enet
+  num_classes: 2
+Optim:
+  name: Adam
+  lr: 0.0002
+  weight_decay: 0.0001
+Scheduler:
+  name: StepLR
+  step_size: 75
+  gamma: 0.3
+
+ADMM_Method:
+  name: gc_size_3d
+  fg_threshold: 1
+  OptimInnerLoopNum: 1
+  ADMMLoopNum: 1
+  device: cuda
+  visualization: False
+  new_eps: 0.1
+  p_u: 10.0
+  p_v: 10.0
+  weight_scheduler_dict:
+    name:  RampScheduler
+    begin_epoch: 1
+    max_epoch: 100
+    max_value: 10
+  balance_scheduler_dict:
+    name:  RampScheduler
+    begin_epoch: 10
+    max_epoch: 100
+    max_value: 0.8
+
+  gc_scheduler_dict:
+    name:  RampScheduler
+    begin_epoch: 10
+    max_epoch: 100
+    max_value: 0.75
+
+
+Trainer:
+  save_dir: runs/LV_prior
+  max_epoch: 250
+  use_tqdm: True
+
+#  checkpoint: archives/PROSTATE_gt_oracle/gc_size
+
+Loss:
+  name: partial_ce
+

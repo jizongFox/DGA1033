@@ -139,7 +139,7 @@ def get_args():
 
 
 if __name__ == '__main__':
-    with open('config_3D.yaml', 'r') as stream:
+    with open('config_3D_RV.yaml', 'r') as stream:
         BASE_CONFIG = yaml.safe_load(stream)
     print('->Base configuration:')
     pprint(BASE_CONFIG)
@@ -153,3 +153,6 @@ if __name__ == '__main__':
     else:
         raise NotImplementedError(f'{args.method} not implemented.')
     search(args, HP_RANGES)
+
+# for GC_search with RV,
+# `python search --method=gc -t=40 -d runs/RV_prior/GC_search`

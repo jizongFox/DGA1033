@@ -49,6 +49,7 @@ class AdmmGCSize3D(AdmmGCSize):
             weight_scheduler_dict: dict = {},
             balance_scheduler_dict: dict = {},
             gc_scheduler_dict: dict = {},
+            fg_threshold: float = 1,
             *args,
             **kwargs
     ) -> None:
@@ -69,6 +70,7 @@ class AdmmGCSize3D(AdmmGCSize):
         self.sigma = float(sigma)
         assert int(kernel_size) % 2 == 1
         self.kernel_size = int(kernel_size)
+        self.fg_threshold = float(fg_threshold)
 
     def step(self):
         self.weight_scheduler.step()
@@ -98,7 +100,8 @@ class AdmmGCSize3D(AdmmGCSize):
         _, _, _ = self.gt.shape
         self.prior: torch.Tensor = weak_gt.to(self.device)
         self.ce_prior = self.prior.squeeze(1).clone()
-        self.ce_prior[(0 < self.ce_prior) & (self.ce_prior < 1)] = -1
+        self.ce_prior[(0 < self.ce_prior) & (self.ce_prior < self.fg_threshold)] = -1
+        self.ce_prior[self.ce_prior >= self.fg_threshold] = 1
         self.ce_prior = self.ce_prior.long()
         assert set(self.ce_prior.unique().cpu().numpy()).issubset(set([0, 1, -1]))
 
@@ -127,6 +130,7 @@ class AdmmGCSize3D(AdmmGCSize):
         _, _, _ = self.v.shape
 
     def _update_gamma(self, ratio: float = 0.0):
+        assert 0 <= self.fg_threshold <= 1
         cropMin = self.cropMin.astype(int)
         cropMax = self.cropMax.astype(int)
 
@@ -147,7 +151,7 @@ class AdmmGCSize3D(AdmmGCSize):
                     int(cropMin[1]):int(cropMax[1] + 1),
                     int(cropMin[2]):int(cropMax[2] + 1)
                     ].cpu().numpy().copy()
-        priorCrop[priorCrop >= 1] = 1e6
+        priorCrop[priorCrop >= self.fg_threshold] = 1e6
         priorCrop[priorCrop <= 0] = -1e6
 
         # priorCrop = np.moveaxis(priorCrop, 2, 0)

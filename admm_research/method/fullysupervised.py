@@ -44,13 +44,15 @@ class FullySupervisedWrapper(AdmmBase):
 
 
 class Soft3DConstrainedWrapper(FullySupervisedWrapper):
-    def __init__(self, model: Segmentator, device='cpu', new_eps=0.1, *args, **kwargs) -> None:
+    def __init__(self, model: Segmentator, device='cpu', new_eps=0.1, fg_threshold=1, *args, **kwargs) -> None:
         super().__init__(model, device, *args, **kwargs)
         self.new_eps = new_eps
         self.criterion = nn.CrossEntropyLoss(weight=torch.Tensor([0, 1]), ignore_index=-1).to(self.device)
         self.threeD_size_generator = IndividualBoundGenerator(eps=self.new_eps)
         self.ce_loss_Meter = AverageValueMeter()
         self.size_Meter = AverageValueMeter()
+        self.fg_threshold = float(fg_threshold)
+        assert 0 <= self.fg_threshold <= 1
 
     def set_input(self, img: torch.Tensor, gt: torch.Tensor, weak_gt: torch.Tensor, bounds: torch.Tensor,
                   paths: Tuple[str] = None, *args, **kwargs):
@@ -61,7 +63,8 @@ class Soft3DConstrainedWrapper(FullySupervisedWrapper):
         self.score: torch.Tensor = self.model.predict(img, logit=True)
         self.prior: torch.Tensor = weak_gt.to(self.device)
         self.ce_prior = self.prior.squeeze(1).clone()
-        self.ce_prior[(0 < self.ce_prior) & (self.ce_prior < 1)] = -1
+        self.ce_prior[self.ce_prior >= self.fg_threshold] = 1
+        self.ce_prior[(0 < self.ce_prior) & (self.ce_prior < self.fg_threshold)] = -1
         self.ce_prior = self.ce_prior.long()
         assert set(self.ce_prior.unique().cpu().numpy()).issubset(set([0, 1, -1]))
 
