@@ -76,7 +76,7 @@ def generate_next_hparam(hp_range, sample_time=100) -> Generator:
             return {f'{k}': f'{v}'}
 
     for _ in range(sample_time):
-        results = {}
+        results: dict = {}
         for k, v in hp_range.items():
             results = dict_merge(results, choose({k: v}), re=True)
         yield results
@@ -98,7 +98,7 @@ def random_save_dir(exp_path: str) -> dict:
             }
 
 
-def search(args: argparse.Namespace, HP_RANGES:dict)->None:
+def search(args: argparse.Namespace, HP_RANGES: dict) -> None:
     from main import main as main_function
     hp_generator = generate_next_hparam(HP_RANGES, sample_time=args.sample_time)
     save_dir: Path = Path(args.exp_dir)

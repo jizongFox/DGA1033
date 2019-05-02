@@ -27,3 +27,4 @@ admm_research/dataset/PROSTATE/explore_data.ipynb
 **/*.mat
 /admm_research/postprocessing/file/
 .mypy_cache
+__zz*.py
