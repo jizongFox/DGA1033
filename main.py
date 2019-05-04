@@ -1,6 +1,7 @@
 import warnings
 from pprint import pprint
 
+import pysnooper
 import yaml
 from pathlib2 import Path
 
@@ -14,6 +15,7 @@ from admm_research.utils import yaml_parser, dict_merge
 warnings.filterwarnings('ignore')
 
 
+@pysnooper.snoop()
 def main(config: dict):
     model = Segmentator(config['Arch'], config['Optim'], config['Scheduler'])
 
