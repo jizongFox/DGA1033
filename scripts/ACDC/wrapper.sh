@@ -27,22 +27,22 @@ wrapper run_gc LV 0 45
 # 0.1 LV
 wrapper run_soft LV 0.1 24
 wrapper run_size LV 0.1 45
-wrapper run_gc_size 0.1 58
+wrapper run_gc_size LV 0.1 58
 
 # 0.2 LV
 wrapper run_soft LV 0.2 24
 wrapper run_size LV 0.2 45
-wrapper run_gc_size 0.2 58
+wrapper run_gc_size LV 0.2 58
 
 # 0.4 LV
 wrapper run_soft LV 0.4 24
 wrapper run_size LV 0.4 45
-wrapper run_gc_size 0.4 58
+wrapper run_gc_size LV 0.4 58
 
 # 0.6 LV
 wrapper run_soft LV 0.6 24
 wrapper run_size LV 0.6 45
-wrapper run_gc_size 0.6 58
+wrapper run_gc_size LV 0.6 58
 
 
 # baseline
@@ -52,19 +52,19 @@ wrapper run_gc RV 0 45
 # 0.1 RV
 wrapper run_soft RV 0.1 24
 wrapper run_size RV 0.1 45
-wrapper run_gc_size 0.1 58
+wrapper run_gc_size RV 0.1 58
 
 # 0.2 RV
 wrapper run_soft RV 0.2 24
 wrapper run_size RV 0.2 45
-wrapper run_gc_size 0.2 58
+wrapper run_gc_size RV 0.2 58
 
 # 0.4 RV
 wrapper run_soft RV 0.4 24
 wrapper run_size RV 0.4 45
-wrapper run_gc_size 0.4 58
+wrapper run_gc_size RV 0.4 58
 
 # 0.6 RV
 wrapper run_soft RV 0.6 24
 wrapper run_size RV 0.6 45
-wrapper run_gc_size 0.6 58
+wrapper run_gc_size RV 0.6 58

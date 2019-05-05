@@ -48,11 +48,11 @@ class DiceMeter(Metric):
         self.diceLog = []
 
     def add(self, pred_logit, gt):
-        '''
+        """
         :param pred_logit: not onehot coding
         :param gt: not onehot! class based coding
         :return: None
-        '''
+        """
         dice_value = self.diceCall(*toOneHot(pred_logit, gt))
         if dice_value.shape.__len__() == 1:
             dice_value = dice_value.unsqueeze(0)

@@ -18,10 +18,10 @@ device = torch.device('cuda') if torch.cuda.is_available() and use_gpu else torc
 class constraint:
 
     def __init__(self, name, image_fullmask_weakmask_S_pair, **kwargs) -> None:
-        '''
+        """
         :param S: input image distribution with gradiant
         :param kwargs: parameter dict for instance initialization
-        '''
+        """
         super().__init__()
         self.name = name
         [image, full_mask, weak_mask, S] = image_fullmask_weakmask_S_pair
@@ -153,12 +153,12 @@ class constraint:
         return self.return_L2_loss()
 
     def __set_boundary_term__(self, g, nodeids, img):
-        '''
+        """
         :param g:
         :param nodeids:
         :param img:
         :return:
-        '''
+        """
         kernel = self.kernel
         sigma = self.sigma
         lumda = self.lamda
@@ -235,9 +235,9 @@ class constraint:
 
 
 class ADMM_inequality():
-    '''
+    """
     this is a wrapper class using inequality constraint class
-    '''
+    """
 
     def __init__(self, torchnet, list_of_constraints, optim_hparams) -> None:
         super().__init__()
@@ -272,9 +272,9 @@ class ADMM_inequality():
 
 
 class ADMM():
-    '''
+    """
 
-    '''
+    """
 
     def __init__(self, CNN) -> None:
         super().__init__()

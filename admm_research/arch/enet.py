@@ -6,7 +6,7 @@ from torch.autograd import Variable
 
 
 class InitialBlock(nn.Module):
-    '''
+    """
     The initial block for Enet has 2 branches: The convolution branch and
     maxpool branch.
     The conv branch has 13 layers, while the maxpool branch gives 3 layers
@@ -14,7 +14,7 @@ class InitialBlock(nn.Module):
     Both output layers are then concatenated to give an output of 16 layers.
     INPUTS:
     - input(Tensor): A 4D tensor of shape [batch_size, channel, height, width]
-    '''
+    """
 
     def __init__(self):
         super(InitialBlock, self).__init__()
@@ -31,7 +31,7 @@ class InitialBlock(nn.Module):
 
 
 class BottleNeck(nn.Module):
-    '''
+    """
     The bottle module has three different kinds of variants:
     1. A regular convolution which you can decide whether or not to downsample.
     2. A dilated convolution which requires you to have a dilation factor.
@@ -56,7 +56,7 @@ class BottleNeck(nn.Module):
     the only filter size used here is 5.
     - use_relu(bool): if True, then all the prelus become relus according to
     Enet author.
-    '''
+    """
 
     def __init__(self,
                  input_channels=None,

@@ -33,9 +33,9 @@ class Metric(object):
 
 
 class AggragatedMeter(object):
-    '''
+    """
     Aggragate historical information in a List.
-    '''
+    """
 
     def __init__(self) -> None:
         super().__init__()
@@ -87,10 +87,10 @@ class ListAggregatedMeter(object):
         return self.ListAggragatedMeter[index]
 
     def summary(self) -> pd.DataFrame:
-        '''
+        """
         summary on the list of subsummarys, merging them together.
         :return:
-        '''
+        """
 
         list_of_summary = [change_dataframe_name(self.ListAggragatedMeter[i].summary(), n) \
                            for i, n in enumerate(self.names)]

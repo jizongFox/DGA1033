@@ -18,12 +18,12 @@ Arch:
   num_classes: 2
 Optim:
   name: Adam
-  lr: 0.0002
+  lr: 0.0005
   weight_decay: 0.0001
 Scheduler:
   name: StepLR
   step_size: 75
-  gamma: 0.3
+  gamma: 0.5
 
 ADMM_Method:
   name: gc_size_3d

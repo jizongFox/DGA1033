@@ -165,12 +165,12 @@ class RegConstraint(Base_constraint):
             self.Y = new_Y
 
     def __set_boundary_term__(self, g, nodeids, img):
-        '''
+        """
         :param g:
         :param nodeids:
         :param img:
         :return:
-        '''
+        """
         kernel = self.kernel
         sigma = self.sigma
         lumda = self.lamda

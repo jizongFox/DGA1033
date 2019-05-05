@@ -33,7 +33,7 @@ def get_parser() -> argparse.Namespace:
 
 
 class Volume(object):
-    '''
+    """
     This class abstracts the necessary components, such as paired image and masks' paths, grouping paths to subjects.
     :parameter  img_folder
     :type str
@@ -41,7 +41,7 @@ class Volume(object):
     :type List[str]
     :interface: __next__() and __cache__()
     :returns img matrix b h w and List[(b h w)]
-    '''
+    """
 
     def __init__(self, img_folder: str, mask_folder_list: List[str], group_pattern=r'patient\d+_\d+',
                  img_extension: str = 'png', crop: int = 0) -> None:
