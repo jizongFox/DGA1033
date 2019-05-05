@@ -15,7 +15,6 @@ from admm_research.utils import yaml_parser, dict_merge
 warnings.filterwarnings('ignore')
 
 
-@pysnooper.snoop()
 def main(config: dict):
     model = Segmentator(config['Arch'], config['Optim'], config['Scheduler'])
 
@@ -41,12 +40,14 @@ if __name__ == '__main__':
     parser_args = yaml_parser()
     print('->>Input args:')
     pprint(parser_args)
-    with open('config_3D_RV.yaml') as f:
+    assert parser_args.get('Config'), f'You must provide yml configuration path.'
+
+    with open(parser_args.get('Config')) as f:
         config = yaml.load(f, )
     config = dict_merge(config, parser_args, True)
 
     # overwrite the checkpoint config
-    if config.get('Trainer', {}).get('checkpoint') is not None:
+    if config.get('Trainer', {}).get('checkpoint'):
         try:
             with open(f"{Path(config['Trainer']['checkpoint']) / 'config_ACDC.yaml'}") as f:
                 config = yaml.load(f, )
