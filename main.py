@@ -40,7 +40,7 @@ if __name__ == '__main__':
     parser_args = yaml_parser()
     print('->>Input args:')
     pprint(parser_args)
-    assert parser_args.get('Config'), f'You must provide yml configuration path.'
+    assert parser_args.get('Config'), 'You must provide config.yml configuration path.'
 
     with open(parser_args.get('Config')) as f:
         config = yaml.load(f, )

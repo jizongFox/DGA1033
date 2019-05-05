@@ -35,25 +35,25 @@ class ToLabel(nn.Module):
         return input_torch
 
 
-def segment_transform(size,mapping=None):
+def segment_transform(size, mapping=None):
     from PIL import Image
     img_transform = transforms.Compose([
         transforms.Resize(size),
         transforms.ToTensor()
     ])
     mask_transform = transforms.Compose([
-        transforms.Resize(size,interpolation=Image.NEAREST),
+        transforms.Resize(size, interpolation=Image.NEAREST),
         # transforms.ToTensor()
         ToLabel(mapping)
     ])
     prior_transform = transforms.Compose([
-        transforms.Resize(size,interpolation=Image.NEAREST),
+        transforms.Resize(size, interpolation=Image.NEAREST),
         transforms.ToTensor()
         # ToLabel(mapping)
     ])
     return {'Img': img_transform,
             'mask': mask_transform,
-            'prior':prior_transform}
+            'prior': prior_transform}
 
 
 def augment(img, mask, weak_mask):
@@ -101,12 +101,12 @@ def get_dataset_root(dataname):
 
 
 def loader_interface(dataconfig_dict, loader_config_dict):
-    assert dataconfig_dict['dataset_name'] in ('cardiac', 'prostate', 'prostate_aug'),dataconfig_dict['dataset_name']
+    assert dataconfig_dict['dataset_name'] in ('cardiac', 'prostate', 'prostate_aug'), dataconfig_dict['dataset_name']
     if dataconfig_dict['dataset_name'] == 'cardiac':
         from .ACDC_helper import ACDC_dataloader
-        return ACDC_dataloader(dataconfig_dict, loader_config_dict,)
-    elif dataconfig_dict['dataset_name'] in ('prostate','prostate_aug'):
+        return ACDC_dataloader(dataconfig_dict, loader_config_dict, )
+    elif dataconfig_dict['dataset_name'] in ('prostate', 'prostate_aug'):
         from .Prostate_helper import PROSTATE_dataloader
-        return PROSTATE_dataloader(dataconfig_dict, loader_config_dict )
+        return PROSTATE_dataloader(dataconfig_dict, loader_config_dict)
     else:
         raise NotImplementedError

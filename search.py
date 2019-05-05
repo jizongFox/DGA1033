@@ -138,7 +138,7 @@ def get_args():
 
 
 if __name__ == '__main__':
-    with open('config_3D_RV.yaml', 'r') as stream:
+    with open('config/config_Prostate.yaml', 'r') as stream:
         BASE_CONFIG = yaml.safe_load(stream)
     print('->Base configuration:')
     pprint(BASE_CONFIG)

@@ -45,7 +45,6 @@ wrapper run_size LV 0.6 45
 wrapper run_gc_size 0.6 58
 
 
-
 # baseline
 wrapper run_fs RV 0 24
 wrapper run_gc RV 0 45

@@ -334,6 +334,8 @@ def yaml_parser() -> Optional[dict]:
 
     args: argparse.Namespace = parser.parse_args()
     args_dict: Optional[dict] = string_list_parser(args.strings)
+    if not args_dict:
+        args_dict = {}
     return args_dict
 
 

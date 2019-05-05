@@ -8,21 +8,24 @@ from torch.utils.data import DataLoader
 __all__ = ['ACDC_dataloader']
 
 
-def build_datasets(dataset_name, use_data_aug=False, subfolder='WeaklyAnnotations', metainfoGenerator_dict={}, choosen_class='LV', *args, **kwargs):
+def build_datasets(dataset_name, use_data_aug=False, subfolder='WeaklyAnnotations', metainfoGenerator_dict={},
+                   choosen_class='LV', *args, **kwargs):
     assert dataset_name == 'cardiac'
     if choosen_class == 'LV':
         mapping = {0: 0, 85: 0, 170: 0, 255: 1}
     elif choosen_class == "RV":
         mapping = {0: 0, 85: 1, 170: 0, 255: 0}
+    else:
+        raise AttributeError(choosen_class)
 
     root_dir = get_dataset_root(dataset_name)
     train_dataset = MedicalImageDataset(root_dir, 'train', subfolder=subfolder,
                                         transform=segment_transform((256, 256), mapping=mapping),
                                         augment=augment if use_data_aug else None,
-                                        metainfoGenerator_dict=metainfoGenerator_dict,*args,**kwargs)
+                                        metainfoGenerator_dict=metainfoGenerator_dict, *args, **kwargs)
     val_dataset = MedicalImageDataset(root_dir, 'val', transform=segment_transform((256, 256), mapping=mapping),
                                       augment=None,
-                                      metainfoGenerator_dict=metainfoGenerator_dict,*args,**kwargs)
+                                      metainfoGenerator_dict=metainfoGenerator_dict, *args, **kwargs)
 
     return train_dataset, val_dataset
 
