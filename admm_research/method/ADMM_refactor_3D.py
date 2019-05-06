@@ -157,7 +157,7 @@ class AdmmGCSize3D(AdmmGCSize):
         priorCrop[priorCrop <= 0] = -1e6
 
         if not self.gc_use_prior:
-            priorCrop[(priorCrop >= 0) & (priorCrop <= 1)] = 0.5
+            priorCrop[(priorCrop >= 0) & (priorCrop <= self.fg_threshold)] = 0.5
 
             # priorCrop = np.moveaxis(priorCrop, 2, 0)
         assert crop_img.shape == priorCrop.shape

@@ -16,7 +16,7 @@ max_epoch=350
 gc_use_prior=False
 subfolder="${choosen_class}_prior/"
 save_dir="${subfolder}eps_search_${new_eps}"
-use_tqdm=True
+use_tqdm=False
 set -e
 
 echo 'Parameters:'

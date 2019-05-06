@@ -28,7 +28,7 @@ GC_HP_RANGES = {
     'ADMM_Method.OptimInnerLoopNum': {0},
     'ADMM_Method.lamda': {0, 10, 10, 100, 0.1},
     'ADMM_Method.sigma': {0.00001, 0.0001, 0.001, 0.01},
-    'ADMM_Method.kernel_size': {3, 5, 7},
+    'ADMM_Method.kernel_size': {3, 5},
     'ADMM_Method.gc_use_prior': {True, False},
     'Optim.lr': {0},
     'Trainer.max_epoch': {1}
@@ -130,6 +130,7 @@ def search(args: argparse.Namespace, HP_RANGES: dict) -> None:
 
 def get_args():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--Config', required=True, type=str, help="Default yaml file path.")
     parser.add_argument('--exp_dir', '-d', required=True, default=None,
                         help='Path to exp')
     parser.add_argument('--method', '-m', default='run', type=str, help="Evaluating GC hyperparamter.")
@@ -138,11 +139,13 @@ def get_args():
 
 
 if __name__ == '__main__':
-    with open('config/config_Prostate.yaml', 'r') as stream:
+
+    args = get_args()
+    with open(args.Config, 'r') as stream:
         BASE_CONFIG = yaml.safe_load(stream)
     print('->Base configuration:')
     pprint(BASE_CONFIG)
-    args = get_args()
+
     if args.method == 'run':
         HP_RANGES = RUN_HP_RANGES
     elif args.method == 'gc':
