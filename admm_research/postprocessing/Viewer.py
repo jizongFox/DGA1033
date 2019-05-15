@@ -5,6 +5,7 @@ from typing import *
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+import yaml
 from PIL import Image
 from pathlib2 import Path
 
@@ -28,6 +29,7 @@ def get_parser() -> argparse.Namespace:
     parser.add_argument('--crop', type=int, default=0, help="Crop image size (default=0).")
     parser.add_argument('--group_pattern', type=str, default='patient\d+_\d+', help="group_pattern")
     parser.add_argument('--img_extension', type=str, default='png', help="Image extension to select, default='png'")
+    parser.add_argument('--mapping', type=yaml.load, default=None)
 
     return parser.parse_args()
 
@@ -151,7 +153,7 @@ class Volume(object):
 
 class Multi_Slice_Viewer(object):
 
-    def __init__(self, volume: Volume, n_subject=1, shuffle_subject=False) -> None:
+    def __init__(self, volume: Volume, n_subject=1, shuffle_subject=False, ) -> None:
         super().__init__()
         self.volume = volume
         self.n_subject = n_subject
@@ -277,7 +279,7 @@ if __name__ == '__main__':
         args.gt_folders,
         group_pattern=args.group_pattern,
         img_extension=args.img_extension,
-        crop=args.crop
+        crop=args.crop,
     )
 
     Viewer = Multi_Slice_Viewer(V, shuffle_subject=args.shuffle, n_subject=args.n_subject)
