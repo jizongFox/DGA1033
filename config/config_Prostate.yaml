@@ -57,7 +57,7 @@ ADMM_Method:
 
 Trainer:
   save_dir: runs/test
-  max_epoch: 1
+  max_epoch: 300
   use_tqdm: True
 
 #  checkpoint: archives/PROSTATE_gt_oracle/gc_size
