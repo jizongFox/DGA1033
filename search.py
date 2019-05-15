@@ -123,7 +123,7 @@ def search(args: argparse.Namespace, HP_RANGES: dict) -> None:
                     {**hp_config, **save_dir, **summary_result}
                 )
 
-            pd.DataFrame(search_results).to_csv(Path(args.exp_dir) / 'search_result.csv')
+            pd.DataFrame(search_results).to_csv(Path(args.exp_dir) / 'Prostate_search_result.csv')
         except StopIteration:
             break
 

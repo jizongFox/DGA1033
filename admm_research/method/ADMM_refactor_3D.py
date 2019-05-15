@@ -153,11 +153,12 @@ class AdmmGCSize3D(AdmmGCSize):
                     int(cropMin[1]):int(cropMax[1] + 1),
                     int(cropMin[2]):int(cropMax[2] + 1)
                     ].cpu().numpy().copy()
-        priorCrop[priorCrop >= self.fg_threshold] = 1e6
-        priorCrop[priorCrop <= 0] = -1e6
+        priorCrop[priorCrop >= self.fg_threshold] =1e6# np.inf
+        priorCrop[priorCrop <= 0] = -1e6#np.inf
 
         if not self.gc_use_prior:
             priorCrop[(priorCrop >= 0) & (priorCrop <= self.fg_threshold)] = 0.5
+            # assert set(np.unique(priorCrop)).issubset([-1.e+06, 5.e-01, 1.e+06]), set(np.unique(priorCrop))
 
             # priorCrop = np.moveaxis(priorCrop, 2, 0)
         assert crop_img.shape == priorCrop.shape

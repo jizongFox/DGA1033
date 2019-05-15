@@ -29,6 +29,8 @@ ADMM_Method:
   name: gc_size_3d
   fg_threshold: 1
   gc_use_prior: True
+  lamda: 0.1
+  sigma: 0.0001
   OptimInnerLoopNum: 1
   ADMMLoopNum: 1
   device: cuda

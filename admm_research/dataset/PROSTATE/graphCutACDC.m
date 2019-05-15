@@ -1,3 +1,5 @@
+% mean dice = 1/2 * (0.74181 + 0.58421) = 0.66301 for LV
+% mean dice = 1/2 * (0.64109 + 0.38026) = 0.510675 for RV
 clc;
 clear all;
 rng(1)
@@ -12,10 +14,13 @@ sizeImg = [256 256 45];
 atlasCenter = ceil(sizeImg/2);
 
 % LV_Class=255 , RV_Class=85;
-% targetClass = 85;
-targetClass = 255;
-
-dataFile = 'dataACDC_LV.mat';
+targetClass = 85;
+% targetClass = 255;
+if targetClass == 255
+    dataFile = 'dataACDC_LV.mat';
+else
+    dataFile = 'dataACDC_RV.mat';
+end
 
 if exist(dataFile, 'file') == 2
     disp('Loading data...');
