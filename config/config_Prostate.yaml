@@ -14,16 +14,16 @@ Dataloader:
   group_train: True
 
 Arch:
-  name: unet
+  name: enet
   num_classes: 2
 Optim:
   name: Adam
-  lr: 0.0002
+  lr: 0.005
   weight_decay: 0.0001
 Scheduler:
   name: StepLR
   step_size: 75
-  gamma: 0.3
+  gamma: 0.25
 
 ADMM_Method:
   name: gc_size_3d
@@ -41,23 +41,22 @@ ADMM_Method:
   weight_scheduler_dict:
     name:  RampScheduler
     begin_epoch: 1
-    max_epoch: 100
-    max_value: 10
+    max_epoch: 50
+    max_value: 20
   balance_scheduler_dict:
     name:  RampScheduler
     begin_epoch: 10
     max_epoch: 100
-    max_value: 0.8
-
+    max_value: 0.5
   gc_scheduler_dict:
     name:  RampScheduler
     begin_epoch: 10
-    max_epoch: 100
-    max_value: 0.75
+    max_epoch: 30
+    max_value: 0.7
 
 Trainer:
   save_dir: runs/test
-  max_epoch: 300
+  max_epoch: 500
   use_tqdm: True
 
 #  checkpoint: archives/PROSTATE_gt_oracle/gc_size

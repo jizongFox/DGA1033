@@ -87,7 +87,8 @@ class Soft3DConstrainedWrapper(FullySupervisedWrapper):
         else:
             raise ValueError
 
-        loss = partialCELoss + 0.01 * sizeLoss
+        loss = partialCELoss + 0.001 * sizeLoss
+        # print(f"PCE:{partialCELoss.item()}, SIZE:{sizeLoss.item()}")
         loss.backward()
         self.model.optimizer.step()
         self.size_Meter.add(sizeLoss.item())
@@ -95,6 +96,7 @@ class Soft3DConstrainedWrapper(FullySupervisedWrapper):
 
         if self.visualization:
             self.show('ce_prior', fig_num=1)
+            # print(f"mean probs:{F.softmax(self.score,1)[:,1].mean()}")
 
         # plt.figure(3)
         # plt.clf()

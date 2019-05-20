@@ -24,14 +24,15 @@ wrapper(){
 }
 #cd ..
 time=1
+#wrapper $time  "python main.py Config=config/config_Prostate.yaml Trainer.save_dir=runs/prostate_eps_0.1_update_parameter/fs ADMM_Method.name=fs"
 # as in the paper
-wrapper $time  "python main.py Config=config/config_Prostate.yaml Trainer.save_dir=runs/prostate_eps_0.1/gc_size"
+#wrapper $time  "python main.py Config=config/config_Prostate.yaml Trainer.save_dir=runs/prostate_eps_0.1_update_parameter/gc_size"
 # single head
-wrapper $time  "python main.py Config=config/config_Prostate.yaml Trainer.save_dir=runs/prostate_eps_0.1/gc ADMM_Method.p_v=0.0"
+#wrapper $time  "python main.py Config=config/config_Prostate.yaml Trainer.save_dir=runs/prostate_eps_0.1_update_parameter/gc ADMM_Method.p_v=0.0"
 # single head with 1 subhead
-wrapper $time  "python main.py Config=config/config_Prostate.yaml Trainer.save_dir=runs/prostate_eps_0.1/size ADMM_Method.p_u=0.0"
+#wrapper $time  "python main.py Config=config/config_Prostate.yaml Trainer.save_dir=runs/prostate_eps_0.1_update_parameter/size ADMM_Method.p_u=0.0"
 # two head with 1 subhead
-wrapper $time  "python main.py Config=config/config_Prostate.yaml Trainer.save_dir=runs/prostate_eps_0.1/soft3d ADMM_Method.name=soft3d"
+#wrapper $time  "python main.py Config=config/config_Prostate.yaml Trainer.save_dir=runs/prostate_eps_0.1_update_parameter/soft3d ADMM_Method.name=soft3d"
 
 
 
@@ -40,7 +41,8 @@ wrapper $time  "python main.py Config=config/config_Prostate.yaml Trainer.save_d
 
 #cd ..
 #cd ..
-#python main.py Config=config/config_Prostate.yaml Trainer.save_dir=runs/prostate_eps_0.1/gc_size
-#python main.py Config=config/config_Prostate.yaml Trainer.save_dir=runs/prostate_eps_0.1/gc ADMM_Method.p_v=0.0
-#python main.py Config=config/config_Prostate.yaml Trainer.save_dir=runs/prostate_eps_0.1/size ADMM_Method.p_u=0.0
-#python main.py Config=config/config_Prostate.yaml Trainer.save_dir=runs/prostate_eps_0.1/soft3d ADMM_Method.name=soft3d
+#python main.py Config=config/config_Prostate.yaml Trainer.save_dir=runs/prostate_eps_0.1_update_parameter/fs ADMM_Method.name=fs
+python main.py Config=config/config_Prostate.yaml Trainer.save_dir=runs/prostate_eps_0.1_update_parameter/gc_size
+python main.py Config=config/config_Prostate.yaml Trainer.save_dir=runs/prostate_eps_0.1_update_parameter/gc ADMM_Method.p_v=0.0
+python main.py Config=config/config_Prostate.yaml Trainer.save_dir=runs/prostate_eps_0.1_update_parameter/size ADMM_Method.p_u=0.0
+python main.py Config=config/config_Prostate.yaml Trainer.save_dir=runs/prostate_eps_0.1_update_parameter/soft3d ADMM_Method.name=soft3d
