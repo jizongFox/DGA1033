@@ -156,7 +156,7 @@ class ADMM_Trainer(Base):
         dataloader_ = tqdm_(dataloader) if self.use_tqdm else dataloader
 
         for i, ((img, gt, wgt, path), size) in enumerate(dataloader_):
-            ## dataaugmentation
+            # dataaugmentation
             assert (wgt == 1).sum() > 0, "you must have the forground."
             img, gt, wgt = img.to(self.device), gt.to(self.device), wgt.to(self.device)
 

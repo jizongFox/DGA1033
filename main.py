@@ -1,7 +1,6 @@
 import warnings
 from pprint import pprint
 
-import pysnooper
 import yaml
 from pathlib2 import Path
 
@@ -39,7 +38,7 @@ def main(config: dict):
 if __name__ == '__main__':
     parser_args = yaml_parser()
     print('->>Input args:')
-    pprint(parser_args if len(parser_args)>0 else None)
+    pprint(parser_args if len(parser_args) > 0 else None)
     assert parser_args.get('Config'), 'You must provide config.yml configuration path.'
 
     with open(parser_args.get('Config')) as f:
