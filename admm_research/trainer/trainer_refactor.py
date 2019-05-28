@@ -15,6 +15,9 @@ from admm_research.metrics2 import DiceMeter, AggragatedMeter, ListAggregatedMet
 from admm_research.utils import tqdm_, flatten_dict, class2one_hot
 
 
+# from admm_research.dataset
+
+
 class Base(ABC):
     src = './runs'
     des = './archive'
@@ -144,7 +147,7 @@ class ADMM_Trainer(Base):
     def _main_loop(self, dataloader: DataLoader, epoch: int, mode: ModelMode, *args, **kwargs):
         dataloader.dataset.set_mode(mode)
         self.admm.set_mode(mode)
-        assert self.admm.model.training == True
+        assert self.admm.model.training
         assert dataloader.dataset.training == ModelMode.TRAIN
         # define recorder for one epoch
         train_dice = DiceMeter(method='3d', report_axises=[1], C=2)
@@ -153,7 +156,10 @@ class ADMM_Trainer(Base):
         dataloader_ = tqdm_(dataloader) if self.use_tqdm else dataloader
 
         for i, ((img, gt, wgt, path), size) in enumerate(dataloader_):
+            ## dataaugmentation
+            assert (wgt == 1).sum() > 0, "you must have the forground."
             img, gt, wgt = img.to(self.device), gt.to(self.device), wgt.to(self.device)
+
             self.admm.set_input(img, gt, wgt, size[:, :, 1], path)
             self.admm.update(self.criterion)
             train_dice.add(self.admm.score, gt)

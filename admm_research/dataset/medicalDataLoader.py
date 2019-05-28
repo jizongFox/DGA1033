@@ -128,9 +128,10 @@ class MedicalImageDataset(Dataset):
         self.equalize = equalize
         self.training = ModelMode.TRAIN
         if metainfoGenerator_dict is not None:
-            from . import metainfoGenerator
-            self.metainGenerator = getattr(metainfoGenerator, metainfoGenerator_dict['name']) \
-                (**{k: v for k, v in metainfoGenerator_dict.items() if k != 'name'})
+            if len(metainfoGenerator_dict)>0:
+                from . import metainfoGenerator
+                self.metainGenerator = getattr(metainfoGenerator, metainfoGenerator_dict['name']) \
+                    (**{k: v for k, v in metainfoGenerator_dict.items() if k != 'name'})
 
     def __len__(self):
         return int(len(self.imgs))

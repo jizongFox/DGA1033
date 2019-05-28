@@ -1,5 +1,5 @@
 Dataset:
-  dataset_name: prostate
+  dataset_name: prostate_aug_3d
   subfolder: prior
   use_data_aug: False
   is_subfolder_mask: False

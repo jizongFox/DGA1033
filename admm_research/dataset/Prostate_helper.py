@@ -11,7 +11,7 @@ __all__ = ['PROSTATE_dataloader']
 
 def build_datasets(dataset_name, use_data_aug, subfolder='WeaklyAnnotations', metainfoGenerator_dict={}, *args,
                    **kwargs):
-    assert dataset_name in ('prostate', 'prostate_aug')
+    assert dataset_name in ('prostate', 'prostate_aug','prostate_aug_3d')
 
     root_dir = get_dataset_root(dataset_name)
 
