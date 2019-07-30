@@ -119,6 +119,7 @@ def _update_gamma_CD_method3(img, probability, u, gt, weak_gt, lamda, sigma, ker
     assert isinstance(gt, np.ndarray)
     assert gt.shape.__len__() == 2
     assert isinstance(weak_gt, np.ndarray)
+    weak_gt = weak_gt.squeeze(0)
     assert weak_gt.shape.__len__() == 2
     assert isinstance(probability, np.ndarray)
     c, h, w = probability.shape

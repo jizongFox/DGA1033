@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from admm_research import flags, LOGGER, config_logger
+from admm_research import LOGGER, config_logger
 from admm_research.method import AdmmGCSize
 from admm_research.utils import Writter_tf, tqdm_
 from torch.utils.data import DataLoader
@@ -23,9 +23,7 @@ class Base(ABC):
     @classmethod
     @abstractmethod
     def setup_arch_flags(cls):
-        """ Setup the arch_hparams """
-        flags.DEFINE_string('save_dir', default='None', help='saved_dir')
-
+        pass
     @abstractmethod
     def start_training(self):
         pass

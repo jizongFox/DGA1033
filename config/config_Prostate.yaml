@@ -26,7 +26,7 @@ Scheduler:
   gamma: 0.25
 
 ADMM_Method:
-  name: gc_size_3d
+  name: soft3d #gc_size_3d
   fg_threshold: 1
   gc_use_prior: True
   lamda: 0.1

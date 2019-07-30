@@ -19,9 +19,9 @@ def main(config: dict):
 
     train_loader, val_loader = loader_interface(config['Dataset'], config['Dataloader'])
 
-    admmmethod = get_method_class(config['ADMM_Method']['name'])(model=model,
-                                                                 **{k: v for k, v in config['ADMM_Method'].items() if
-                                                                    k != 'name'})
+    admmmethod = get_method_class(config['ADMM_Method']['name'])(
+        model=model,
+        **{k: v for k, v in config['ADMM_Method'].items() if k != 'name'})
     trainer = ADMM_Trainer(
         ADMM_method=admmmethod,
         train_dataloader=train_loader,

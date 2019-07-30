@@ -1,7 +1,6 @@
-name = "admm_research"
-
-from absl import flags, app
-import logging, sys, os
+import logging
+import os
+import sys
 from enum import Enum
 
 

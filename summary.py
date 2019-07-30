@@ -4,6 +4,8 @@ from typing import Union, Dict, Tuple
 
 import numpy as np
 import torch
+# from admm_research.models import Segmentator
+from deepclustering.model import Model as Segmentator
 from pathlib2 import Path
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -11,7 +13,6 @@ from tqdm import tqdm
 from admm_research import ModelMode
 from admm_research.dataset import loader_interface
 from admm_research.metrics2 import DiceMeter
-from admm_research.models import Segmentator
 from admm_research.utils import flatten_dict
 from admm_research.utils import save_images
 
@@ -70,10 +71,17 @@ def main(args: argparse.Namespace) -> dict:
     checkpoint: dict = torch.load(str(filepath / args.checkpoint_name), map_location=torch.device('cpu'))
     print(f'-> Load networks')
     model = Segmentator(config_dict['Arch'], config_dict['Optim'], config_dict['Scheduler'])
-    model = model.load_state_dict(checkpoint['ADMM']['model'])
+    try:
+        model = model.load_state_dict(checkpoint['ADMM']['model'])
+    except  KeyError:
+        model.load_state_dict(checkpoint["model_state_dict"])
     model.to(torch.device('cuda' if torch.cuda.is_available() and (not args.use_cpu) else 'cpu'))
     model.eval()
-    print(f'Best score: {checkpoint["best"]:.3f}')
+    try:
+        print(f'Best score: {checkpoint["best"]:.3f}')
+    except KeyError:
+        print(f'Best score: {checkpoint["best_score"]:.3f}')
+
     print(f'-> Evaluating:')
     with torch.no_grad():
         dice: dict

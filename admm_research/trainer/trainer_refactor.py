@@ -132,10 +132,6 @@ class ADMM_Trainer(Base):
     def summary(self):
         from summary import main as summary_main
         import argparse
-        # proc = Popen(f'python summary.py --folder={self.save_dir}', shell=True, stdout=PIPE, stderr=PIPE)
-        # out, err = proc.communicate()
-        # proc.wait()
-        # return  out.decode('utf-8')[out.decode('utf-8').find(RESULT_FLAG)+len(RESULT_FLAG):]
         results = summary_main(
             args=argparse.Namespace(**{'folder': self.save_dir,
                                        'checkpoint_name': 'best.pth',
